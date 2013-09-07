@@ -1,0 +1,28 @@
+{
+  "manifest_version": 2,
+  "name": "Devtools Remote Terminal",
+  "version": "0.1",
+  "author": "Dmitry Filimonov",
+  "description": "Remote shell right in your browser! ",
+  "devtools_page": "devtools.html",
+  "permissions": [
+    "storage"
+  ],
+  "icons": {
+    "128": "icons/app-icon-128.png",
+    "64": "icons/app-icon-64.png",
+    "48": "icons/app-icon-48.png",
+    "32": "icons/app-icon-32.png",
+    "16": "icons/app-icon-16.png"
+  },
+  "background":{
+    "scripts":[
+      "background.js"
+    ]
+  },
+  "app":{
+    "launch": {
+      "local_path": "panel/index.html"
+    }
+  }
+}

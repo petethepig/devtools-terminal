@@ -1,0 +1,383 @@
+/**
+ * From chromium devtools:
+ */
+
+body {
+  cursor: default;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  font-family: Lucida Grande, sans-serif;
+  font-size: 12px;
+  margin: 0;
+  tab-size: 4;
+  -webkit-user-select: none;
+  color: #222;
+}
+
+body.platform-linux {
+  color: rgb(48, 57, 66);
+  font-family: Ubuntu, Arial, sans-serif;
+}
+
+body.platform-mac {
+  color: rgb(48, 57, 66);
+  font-family: 'Lucida Grande', sans-serif;
+}
+
+body.platform-windows {
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+body.platform-mac .terminal,
+body.platform-mac .monospace,
+body.platform-mac .source-code {
+  font-size: 11px !important;
+  font-family: Menlo, monospace;
+}
+
+body.platform-mac.platform-mac-tiger .terminal,
+body.platform-mac.platform-mac-tiger .monospace,
+body.platform-mac.platform-mac-tiger .source-code {
+  font-size: 10px !important;
+  font-family: Monaco, monospace;
+}
+
+body.platform-windows .terminal,
+body.platform-windows .monospace,
+body.platform-windows .source-code {
+  font-size: 12px !important;
+  font-family: Consolas, Lucida Console, monospace;
+}
+
+body.platform-linux .terminal,
+body.platform-linux .monospace,
+body.platform-linux .source-code {
+  font-size: 11px !important;
+  font-family: dejavu sans mono, monospace;
+}
+
+/**
+ * Reset
+ */
+
+body, html, p, h1, h2, h3, h4, h5, h6, button, ul, li, input, form{
+  margin: 0;
+  padding: 0;
+  border: 0;
+  list-style: none;
+}
+
+body, html{
+  width: 100%;
+  height: 100%;
+}
+
+
+/**
+ * Terminal 
+ */
+
+.terminal {
+  border: 5px solid #fff;
+  border-top-width: 3px;
+  border-bottom-width: 3px;
+  float: none;
+}
+
+.terminal-container{
+  width: 100%;
+  height: 100%;
+}
+
+/**
+ * Basic stuff 
+ */
+
+body, button{
+  background: #fff;
+  color: #222;
+}
+
+button{
+  color: #222;
+  padding: 6px 10px;
+  cursor: pointer;
+  min-width: 100px;
+  text-align: center;
+  font: inherit;
+}
+
+button[type='submit']{
+  font-weight: bold;
+}
+
+button:focus{
+  outline: none;
+  color: rgba(102, 175, 233, 1);
+}
+
+input[type='text'],
+input[type='password']{
+  display: inline-block;
+  background: white;
+  border: 1px solid #ccc;
+  padding: 3px 6px;
+  font: inherit;
+}
+
+input[type='text']:focus,
+input[type='password']:focus{
+  outline: none;
+  border-color: #a3cff2;
+  box-shadow: 0 0 2px 0 #a3cff2;
+}
+
+
+.content{
+  -webkit-transition: -webkit-filter 0.4s ease-out;
+}
+
+.blur {
+  -webkit-filter: blur(3px);
+}
+
+
+/**
+ * Address bar
+ */
+
+.address-bar-wrapper{
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  -webkit-transform: translate(0, -40px);
+
+  -webkit-transition: -webkit-transform 0.4s ease-out;
+}
+
+.address-bar-wrapper.show{
+  -webkit-transform: translate(0, 0);
+}
+
+.address-bar{
+  height: 33px;
+  margin: 0;
+  background: #f0f0f0;
+  border-bottom: 1px solid #cacaca;
+
+  position: relative;
+  z-index: 2;
+}
+
+.address-bar:after{
+  content: '';
+  display: inline-block;
+  vertical-align: middle;
+  height: 100%;
+}
+
+.address-bar input[type='text'],
+.address-bar label,
+.address-bar button{
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.address-bar input[type='text']{
+  width: 50%;
+  border-radius: 2px 0 0 2px;
+}
+
+.address-bar label{
+  text-align: right;
+  width: 105px;
+  padding-right: 5px;
+}
+
+.address-bar button{
+  padding: 3px 8px;
+  min-width: 0;
+  border: 1px solid #ccc;
+  border-left: none;
+  border-radius: 0 2px 2px 0;
+  background-image: -webkit-linear-gradient(bottom, #ddd 0%, #fff 100%);
+}
+
+.address-bar button:hover{
+  background-image: -webkit-linear-gradient(bottom, #ddd 0%, #fff 100%);
+  color: #38f;
+}
+
+.address-bar button:active{
+  box-shadow: 0 0 2px #333;
+}
+
+.address-bar button:active,
+.address-bar button:focus{
+  position: relative;
+  left: -1px;
+  border-left: 1px solid #a3cff2;
+  color: #222;
+  border-color: #a3cff2;
+  box-shadow: 0 0 2px 0 #a3cff2;
+}
+
+.suggestions{
+  background: white;
+  padding: 4px 0;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+  display: none;
+
+  position: relative;
+  z-index: 1;
+}
+
+.suggestion{
+  box-sizing: border-box;
+  width: 50%;
+  padding: 3px 6px;
+  border-radius: 2px;
+  margin-left: 110px;
+  border: 1px solid transparent;
+}
+
+.suggestion:hover{
+  background: #e8e8e8;
+  border-color: #e8e8e8; /*82b8ff*/
+}
+
+.suggestion.selected{
+  background: #b5d5ff;
+  border-color: #b5d5ff; /*82b8ff*/
+}
+
+.address-bar-open-btn{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border: 1px solid #cacaca;
+  border-radius: 5px;
+  text-align: center;
+  cursor: pointer;
+  
+  -webkit-transform: translate(0, -4px) rotate(0deg);
+  -webkit-transition: all 0.4s ease-out;
+}
+
+.address-bar-open-btn:after{
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+  border-bottom-color: rgb(48, 57, 66);
+}
+
+.address-bar-open-btn:hover{
+  border-color: rgb(48, 57, 66);
+}
+
+.address-bar-open-btn.show{
+  top: 10px;
+   -webkit-transform: translate(0, 0) rotate(180deg);
+}
+
+/**
+ * Modal window
+ */
+
+.modal{
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0,0,0,0.3);
+  text-align: center;
+
+  opacity: 0;
+  -webkit-transition: opacity 0.4s ease-out;
+  display: none;
+}
+
+.modal.show{
+  opacity: 1;
+}
+
+.modal .modal-dialog{
+  -webkit-transition: -webkit-transform 0.4s ease-out;
+  -webkit-transform: scale(0.5,0.5);
+}
+
+.modal.show .modal-dialog{
+  -webkit-transform: scale(1.0,1.0);
+}
+
+.modal h4{
+  margin: 10px 0;
+}
+
+.modal p{
+  margin: 10px 0;
+}
+
+.modal input[type='text'],
+.modal input[type='password']{
+  width: 160px;
+  margin: 0 auto 5px;
+}
+
+.modal .modal-inputs{
+  margin-bottom: 5px;
+}
+
+.modal button{
+  background: white;
+  border: 0;
+  border-top: 1px solid #ccc;
+}
+
+.modal button[type='submit']{
+  background: #fff;
+}
+
+.modal button:hover{
+  background: #eaf1fb;
+}
+
+.modal button:active{
+  background: #3879d9;
+  color: white;
+}
+
+.modal button + button{
+  margin-left: 0px;
+  border-left: 1px solid #ccc;
+}
+
+.modal-dialog{
+  display: inline-block;
+  vertical-align: 25%;
+
+  padding: 0;
+  background: white;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  overflow: hidden;
+  text-align: center;
+}
+
+.modal:after{
+  content: '';
+  height: 100%;
+  display: inline-block;
+  vertical-align: middle;
+}
+
