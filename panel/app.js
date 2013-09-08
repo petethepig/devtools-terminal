@@ -130,7 +130,7 @@
 
   function getSuggestedServers(callback) {
     if(devtoolsApiAvailable()) {
-      var script = "Array.prototype.map.call(document.querySelectorAll('meta[name=remote-terminal-url]'), function(a) {return a.content;});";
+      var script = "Array.prototype.map.call(document.querySelectorAll('meta[name=devtools-terminal-url]'), function(a) {return a.content;});";
       chrome.devtools.inspectedWindow.eval(script, function(result, isException) {
         if(result && !isException) {
           callback(result);
@@ -384,7 +384,7 @@
     initialize: function(options) {
       var self = this;
       
-      this.openButton = document.querySelector(".address-bar-open-btn");
+      this.openButton = document.querySelector(".address-bar-btn.open-btn");
       this.addressInput = this.$("input[type='text']")[0];
       this.addressInput.value = "http://";
       this.form = this.$("form")[0];
@@ -409,6 +409,7 @@
 
       this.selectedSuggestion = 0;
       this.suggestionsCount = 0;
+
       this.updateServers = this.updateServers.bind(this);
       DataStorage.instance.on('change', this.updateServers);
       this.updateServers();
@@ -434,6 +435,7 @@
       this.addressInput.value = this.latestValue;
 
       this.updateSuggestions();
+      this.addressInput.blur();
       this.emit('submit', this.latestValue);
     },
     suggestionClick: function(ev) {
@@ -550,15 +552,13 @@
           self.socket.emit('data', data);  
         }
       });
+
     },
     connect: function(credentials) {
       var self = this;
 
       extend(this.credentials, credentials);
 
-      if(!this.term) {
-        this.initTerminal();
-      }
       if(this.socket) {
         this.utilizeSocket();
       }
@@ -631,7 +631,7 @@
         , h = this.element.clientHeight - (term.offsetHeight - term.clientHeight)
         , x = cell.clientWidth
         , y = cell.clientHeight;
-      return { cols: Math.max(Math.floor(w / x), 50), rows: Math.max(Math.floor(h / y), 20) };
+      return { cols: Math.max(Math.floor(w / x), 10), rows: Math.max(Math.floor(h / y), 10) };
     };
   });
 
@@ -670,6 +670,8 @@
 
     var terminal = new TerminalComponent();
     document.querySelector(".tab").appendChild(terminal.element);
+    terminal.initTerminal();
+    terminal.term.element.childNodes[3].innerHTML = 'Read this <a href="http://blog.dfilimonov.com/2013/09/10/devtools-remote-terminal.html" target="_blank" >blog post</a> for instructions';
 
     // Setup authModal events
     authModal.on('submit', function(login, password) {

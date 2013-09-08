@@ -1,9 +1,9 @@
 {
   "manifest_version": 2,
-  "name": "Devtools Remote Terminal",
+  "name": "Devtools Terminal",
   "version": "0.1",
   "author": "Dmitry Filimonov",
-  "description": "Remote shell right in your browser! ",
+  "description": "Remote shell in your browser",
   "devtools_page": "devtools.html",
   "permissions": [
     "storage"

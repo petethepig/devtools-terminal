@@ -32,6 +32,7 @@ body.platform-windows {
   font-family: 'Segoe UI', Tahoma, sans-serif;
 }
 
+body.platform-mac code,
 body.platform-mac .terminal,
 body.platform-mac .monospace,
 body.platform-mac .source-code {
@@ -39,6 +40,7 @@ body.platform-mac .source-code {
   font-family: Menlo, monospace;
 }
 
+body.platform-mac.platform-mac-tiger code,
 body.platform-mac.platform-mac-tiger .terminal,
 body.platform-mac.platform-mac-tiger .monospace,
 body.platform-mac.platform-mac-tiger .source-code {
@@ -46,6 +48,7 @@ body.platform-mac.platform-mac-tiger .source-code {
   font-family: Monaco, monospace;
 }
 
+body.platform-windows code,
 body.platform-windows .terminal,
 body.platform-windows .monospace,
 body.platform-windows .source-code {
@@ -53,6 +56,7 @@ body.platform-windows .source-code {
   font-family: Consolas, Lucida Console, monospace;
 }
 
+body.platform-linux code,
 body.platform-linux .terminal,
 body.platform-linux .monospace,
 body.platform-linux .source-code {
@@ -64,7 +68,7 @@ body.platform-linux .source-code {
  * Reset
  */
 
-body, html, p, h1, h2, h3, h4, h5, h6, button, ul, li, input, form{
+body, html, p, h1, h2, h3, h4, h5, h6, button, ul, li, input, form, pre, code{
   margin: 0;
   padding: 0;
   border: 0;
@@ -76,6 +80,38 @@ body, html{
   height: 100%;
 }
 
+/**
+ * Formatted text styles
+ */
+
+.formatted-text h1,
+.formatted-text h2,
+.formatted-text h3,
+.formatted-text h4,
+.formatted-text h5,
+.formatted-text h6{
+  margin: 1.4em 0 0.4em;
+}
+
+.formatted-text p,
+.formatted-text pre{
+  margin: 0 0 1em;
+}
+
+.formatted-text>*:first-child{
+  margin-top: 0 !important;
+}
+
+.formatted-text>*:last-child{
+  margin-bottom: 0 !important;
+}
+
+.formatted-text pre{
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 5px 8px;
+}
 
 /**
  * Terminal 
@@ -256,38 +292,41 @@ input[type='password']:focus{
   border-color: #b5d5ff; /*82b8ff*/
 }
 
-.address-bar-open-btn{
+.address-bar-btn{
   position: absolute;
   top: 10px;
-  right: 10px;
   width: 20px;
   height: 20px;
+  line-height: 20px;
   background: #fff;
   border: 1px solid #cacaca;
   border-radius: 5px;
   text-align: center;
   cursor: pointer;
-  
+
   -webkit-transform: translate(0, -4px) rotate(0deg);
   -webkit-transition: all 0.4s ease-out;
 }
 
-.address-bar-open-btn:after{
+.address-bar-btn:hover{
+  border-color: rgb(48, 57, 66);
+}
+
+.address-bar-btn.show{
+   -webkit-transform: translate(0, 0) rotate(180deg);
+}
+
+.address-bar-btn.open-btn{
+  right: 10px;
+}
+
+.address-bar-btn.open-btn:after{
   content: '';
   display: inline-block;
   width: 0;
   height: 0;
   border: 6px solid transparent;
   border-bottom-color: rgb(48, 57, 66);
-}
-
-.address-bar-open-btn:hover{
-  border-color: rgb(48, 57, 66);
-}
-
-.address-bar-open-btn.show{
-  top: 10px;
-   -webkit-transform: translate(0, 0) rotate(180deg);
 }
 
 /**
@@ -379,5 +418,20 @@ input[type='password']:focus{
   height: 100%;
   display: inline-block;
   vertical-align: middle;
+}
+
+/**
+ * Help
+ */
+
+.help{
+  position: absolute;
+  top: 32px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  padding: 15px;
+  -webkit-user-select: all;
 }
 
