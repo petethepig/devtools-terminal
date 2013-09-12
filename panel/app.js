@@ -671,7 +671,7 @@
     var terminal = new TerminalComponent();
     document.querySelector(".tab").appendChild(terminal.element);
     terminal.initTerminal();
-    terminal.term.element.childNodes[3].innerHTML = 'Read this <a href="http://blog.dfilimonov.com/2013/09/10/devtools-remote-terminal.html" target="_blank" >blog post</a> for instructions';
+    terminal.term.element.childNodes[3].innerHTML = 'Check out this <a href="http://blog.dfilimonov.com/2013/09/12/devtools-remote-terminal.html" target="_blank" >blog post</a> for instructions';
 
     // Setup authModal events
     authModal.on('submit', function(login, password) {
