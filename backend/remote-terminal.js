@@ -33,7 +33,6 @@ var options = optimist
   .argv
 ;
 
-
 if(options.help){
   console.log(optimist.help());
   return 0;
@@ -45,7 +44,7 @@ if(options.help){
 var config;
 
 if(options.config){
-  config = require(path.resolve(process.cwd(), options.config));
+  config = require(path.resolve(process.cwd(), options.config)).config;
 }else{
   config = {
     users: {

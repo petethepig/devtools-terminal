@@ -1,4 +1,4 @@
-exports = {
+exports.config = {
   users: {
     admin: {
       password: "",
