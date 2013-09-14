@@ -1,9 +1,9 @@
 {
   "manifest_version": 2,
-  "name": "Devtools Terminal",
-  "version": "0.2",
+  "name": "Devtools Terminal (dev build)",
+  "version": "0.3",
   "author": "Dmitry Filimonov",
-  "description": "Remote shell in your browser",
+  "description": "Local terminal in your browser.",
   "devtools_page": "devtools.html",
   "permissions": [
     "storage"
@@ -24,5 +24,11 @@
     "launch": {
       "local_path": "panel/index.html"
     }
-  }
+  },
+  "plugins": [
+    {
+      "path": "native/devtools-terminal.plugin",
+      "public": true
+    }
+  ]
 }

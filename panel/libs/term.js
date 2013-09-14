@@ -390,6 +390,7 @@ Terminal.defaults = {
   geometry: [80, 24],
   cursorBlink: true,
   visualBell: false,
+  soundBell: false,
   popOnBell: false,
   scrollback: 1000,
   screenKeys: false,
@@ -1739,7 +1740,7 @@ Terminal.prototype.write = function(data) {
           if (ch === '\x1b') i++;
 
           this.params.push(this.currentParam);
-
+          console.log(this.params[0]);
           switch (this.params[0]) {
             case 0:
             case 1:
@@ -2670,6 +2671,7 @@ Terminal.prototype.send = function(data) {
 };
 
 Terminal.prototype.bell = function() {
+  this.emit('bell');
   if (!this.visualBell) return;
   var self = this;
   this.element.style.borderColor = 'white';

@@ -15,6 +15,7 @@ chrome.runtime.onConnect.addListener(function(port) {
         , message_id = msg.message_id;
 
       method.call(obj, keys, function(items){
+        items = items || {};
         items.message_id = message_id;
         port.postMessage(items);
       })

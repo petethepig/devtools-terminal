@@ -122,8 +122,11 @@ body, html{
   border-top-width: 3px;
   border-bottom-width: 3px;
   float: none;
+  -webkit-user-select: all;
 }
 
+.tab,
+.content,
 .terminal-container{
   width: 100%;
   height: 100%;
@@ -154,6 +157,7 @@ button[type='submit']{
 button:focus{
   outline: none;
   color: rgba(102, 175, 233, 1);
+  background: #eaf1fb;
 }
 
 input[type='text'],
@@ -313,7 +317,7 @@ input[type='password']:focus{
 }
 
 .address-bar-btn.show{
-   -webkit-transform: translate(0, 0) rotate(180deg);
+  -webkit-transform: translate(0, 0) rotate(180deg);
 }
 
 .address-bar-btn.open-btn{
@@ -322,11 +326,13 @@ input[type='password']:focus{
 
 .address-bar-btn.open-btn:after{
   content: '';
-  display: inline-block;
+  display: inline-block;git 
   width: 0;
   height: 0;
   border: 6px solid transparent;
   border-bottom-color: rgb(48, 57, 66);
+  position: relative;
+  top: -2px;
 }
 
 /**

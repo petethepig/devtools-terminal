@@ -1,0 +1,29 @@
+{
+  "name": "devtools-terminal",
+  "preferGlobal": true,
+  "version": "0.0.1",
+  "author": "Dmitry Filimonov <me@dfilimonov.com>",
+  "description": "Terminal in Chrome Devtools",
+  "contributors": [ 
+    {
+      "name": "Dmitry Filimonov",
+      "email": "me@dfilimonov.com"
+    } 
+  ],
+  "bin": {
+    "devtools-terminal": "./bin/devtools-terminal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/petethepig/devtools-terminal.git"
+  },
+  "dependencies" : {
+    "pty.js"   :  "*",
+    "optimist" :  "*",
+    "socket.io":  "*"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.8"
+  }
+}

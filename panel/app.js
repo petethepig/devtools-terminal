@@ -2,6 +2,8 @@
   
   "use strict";
 
+  var debug = true;
+
   /*
    * Taken from Chromium:
    */
@@ -25,6 +27,7 @@
         return "mac";
       return "linux";
     }
+
     function platformFlavor() {
       var userAgent = navigator.userAgent
         , match;
@@ -56,11 +59,56 @@
 
     function setBodyClasses() {
       document.body.classList.add("platform-" + platform());
-      document.body.classList.add("platform-" + platformFlavor());
+      var flavor = platformFlavor();
+      if(flavor != "" && flavor != null){
+        document.body.classList.add("platform-" + flavor);
+      }
     }
 
     window.addEventListener("load", setBodyClasses);
   }();
+
+  //http://stackoverflow.com/questions/879152/how-do-i-make-javascript-beep
+  var beep = (function () {
+    var ctx = new(window.audioContext || window.webkitAudioContext);
+    return function (duration, type, frequency, note, finishedCallback) {
+
+      duration = +duration;
+
+      // Only 0-4 are valid types.
+      type = (type % 4) || 0;
+
+      if (typeof finishedCallback != "function") {
+        finishedCallback = function () {};
+      }
+
+      var osc = ctx.createOscillator()
+        , gain = ctx.createGainNode();
+
+      osc.type = type;
+
+
+  
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.value = 0.0;
+      var now = ctx.currentTime;
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(1.0, now + duration/1000/4);
+      gain.gain.linearRampToValueAtTime(0.0, now + duration/1000);
+
+      osc.frequency.value = frequency;
+      osc.noteOff(note);
+      osc.noteOn(note);
+
+      setTimeout(function () {
+        osc.noteOff(note);
+        finishedCallback();
+      }, duration);
+
+    };
+  })();
+  window.beep = beep;
 
 
   /**
@@ -71,6 +119,8 @@
     _resize.apply(this, arguments);
     this.emit('resize', [this.cols, this.rows]);
   };
+
+
 
   Terminal.colors[256] = '#fff';
   Terminal.colors[257] = '#373f48';
@@ -298,6 +348,9 @@
       asyncCall(function() {
         self.element.classList.add("show");
         document.querySelector(".content").classList.add("blur");
+        if(self.focusElement){
+          self.focusElement.focus();
+        }
       });
     },
     hide: function() {
@@ -318,6 +371,9 @@
       this.form = this.$("form")[0];
       this.cancelBtn = this.$(".js-cancel-btn")[0];
       this.okBtn = this.$(".js-ok-btn")[0];
+
+      this.focusElement = this.okBtn;
+
       this.loginInput = this.$('input[name="login"]')[0];
       this.passwordInput = this.$('input[name="password"]')[0];
 
@@ -356,6 +412,8 @@
       this.form = this.$("form")[0];
       this.cancelBtn = this.$(".js-cancel-btn")[0];
       this.okBtn = this.$(".js-ok-btn")[0];
+
+      this.focusElement = this.okBtn;
       
       this.$on(this.cancelBtn, 'click', this.cancelHandler);
       this.$on(this.form, 'submit', this.submitHandler);
@@ -425,9 +483,11 @@
       ev.preventDefault();
       this.latestValue = this.addressInput.value;
 
+      /*
       if(!/^https?:\/\//.test(this.latestValue)) {
         this.latestValue = 'http://' + this.latestValue;
       }
+      */
       if(!/\/$/.test(this.latestValue)){
         this.latestValue = this.latestValue + '/';
       }
@@ -516,6 +576,43 @@
     }
   });
 
+  var PluginComponent = Component.extend({
+    initialize: function(options) {
+      options = options || {};
+      options.cols = options.cols || 80;
+      options.rows = options.rows || 24;
+
+      this.options = options; 
+
+      var plugin = document.createElement('embed');
+      plugin.type = 'application/x-devtools-terminal'
+      document.body.appendChild(plugin);
+      
+      window.plugin = this.plugin = this.element = plugin;
+
+    },
+    connect: function(){
+      var self = this;
+      asyncCall(function(){
+        self.plugin.init(self.options, function(data){
+          if(data == null){
+            EventEmitter.prototype.emit.call(self, 'disconnect');
+          }else{
+            EventEmitter.prototype.emit.call(self, 'data', data);
+          }
+        });
+        EventEmitter.prototype.emit.call(self, 'connect');
+      }, 100);
+    },
+    emit: function(event, data){
+      if(this.plugin[event]){
+        var a = this.plugin[event].call(this.plugin, data);
+      }
+    },
+    removeAllListeners: function(){
+      //TODO
+    }
+  })
 
   var TerminalComponent = Component.extend({
     initialize: function(options) {
@@ -532,14 +629,24 @@
         useStyle: true,
         screenKeys: true,
         cursorBlink: false,
+        soundBell: true,
         debug: true
       });
-
       
       this.term.open(this.element);
 
       this.$on(window, 'resize', this.resizeHandler);
       this.resizeHandler();
+
+
+      this.term.on('title', function(data) {
+        self.title = data;
+      });
+
+      this.term.on('bell', function() {
+        //beep(250,3,440/4,1);
+        beep(250/2,0,440/2,2);
+      });
 
       this.term.on('resize', function(data) {
         if(self.socket) {
@@ -549,6 +656,7 @@
 
       this.term.on('data', function(data) {
         if(self.socket) {
+          if(debug) console.log('<<', data);
           self.socket.emit('data', data);  
         }
       });
@@ -568,15 +676,20 @@
       var size = this.maxSize();
       var url = this.credentials.url;
 
-      this.term.reset();
-      this.term.focus();
-      this.term.showCursor();
 
-      this.socket = io.connect(url, {
-        'force new connection': true,
-        reconnect: false,
-        query: ("auth=" + authData + "&cols=" + size.cols + "&rows=" + size.rows)
-      });
+      if(typeof credentials === "undefined"){
+        this.socket = new PluginComponent({
+          rows: size.rows,
+          cols: size.cols,
+          //cmd: "/bin/bash"
+        });
+      }else{
+        this.socket = io.connect(url, {
+          'force new connection': true,
+          reconnect: false,
+          query: ("auth=" + authData + "&cols=" + size.cols + "&rows=" + size.rows)
+        });
+      }
 
       this.socket.on('connect', function() {
         DataStorage.instance.saveCredentials(self.credentials);
@@ -588,6 +701,7 @@
       });
 
       this.socket.on('data', function(data) {
+        if(debug) console.log('>>', data);
         term.write(data);
       });
 
@@ -595,6 +709,15 @@
         var type = data == 'handshake error' ? 'handshake error' : 'error';
         self.emit(type, data);
       });
+
+      if(this.socket.connect){
+        this.socket.connect();
+      }
+      asyncCall(function(){
+        self.term.reset();
+        self.term.element.focus();
+        self.term.showCursor();
+      })
 
     },
     resizeHandler: function() {
@@ -645,16 +768,13 @@
       main();
     }else{
       document.addEventListener( "DOMContentLoaded", function(){
-        document.removeEventListener( "DOMContentLoaded", arguments.callee, false );
         main();
       });
     }
   });
   ds.load();
 
-
   function main(){
-
     // Initialize all components
     var authModal = new AuthModalComponent({
       element: document.querySelector(".auth-modal")
@@ -671,7 +791,7 @@
     var terminal = new TerminalComponent();
     document.querySelector(".tab").appendChild(terminal.element);
     terminal.initTerminal();
-    terminal.term.element.childNodes[3].innerHTML = 'Check out this <a href="http://blog.dfilimonov.com/2013/09/12/devtools-remote-terminal.html" target="_blank" >blog post</a> for instructions';
+    //terminal.term.element.childNodes[3].innerHTML = 'Check out this <a href="http://blog.dfilimonov.com/2013/09/12/devtools-remote-terminal.html" target="_blank" >blog post</a> for instructions';
 
     // Setup authModal events
     authModal.on('submit', function(login, password) {
@@ -735,10 +855,14 @@
 
 
     // Start with showing the address bar
-    addressBar.show();
+    //addressBar.show();
+
+    // Start with local terminal
+
+    terminal.connect();
+
 
   }
-
 
 
 
