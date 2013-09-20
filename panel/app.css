@@ -118,12 +118,13 @@ body, html{
  */
 
 .terminal {
-  border: 5px solid #fff;
-  border-top-width: 3px;
-  border-bottom-width: 3px;
+  border-style: solid;
+  border-width: 3px 5px;
   float: none;
   -webkit-user-select: all;
 }
+
+
 
 .tab,
 .content,
@@ -137,11 +138,11 @@ body, html{
  */
 
 body, button{
-  background: #fff;
   color: #222;
 }
 
 button{
+  background: white;
   color: #222;
   padding: 6px 10px;
   cursor: pointer;
@@ -298,7 +299,7 @@ input[type='password']:focus{
 
 .address-bar-btn{
   position: absolute;
-  top: 10px;
+  top: 6px;
   width: 20px;
   height: 20px;
   line-height: 20px;
@@ -308,7 +309,6 @@ input[type='password']:focus{
   text-align: center;
   cursor: pointer;
 
-  -webkit-transform: translate(0, -4px) rotate(0deg);
   -webkit-transition: all 0.4s ease-out;
 }
 
@@ -322,6 +322,7 @@ input[type='password']:focus{
 
 .address-bar-btn.open-btn{
   right: 10px;
+  display: none;
 }
 
 .address-bar-btn.open-btn:after{
@@ -334,6 +335,23 @@ input[type='password']:focus{
   position: relative;
   top: -2px;
 }
+
+.address-bar-btn.theme-toggle-btn{
+  background: #272822;
+  border-width: 0;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  top: 10px;
+  right: 10px;
+}
+
+
+.address-bar-btn.theme-toggle-btn.white{
+  background: white;
+}
+
+
 
 /**
  * Modal window

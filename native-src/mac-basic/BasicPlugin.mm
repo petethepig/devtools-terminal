@@ -155,7 +155,7 @@ static void *handleIO(void * userData){
       signal(SIGTERM, SIG_DFL);
       signal(SIGALRM, SIG_DFL);
 
-      setenv("TERM", "xterm", 1);
+      setenv("TERM", "xterm-256color", 1);
       setenv("TERM_PROGRAM", "Devtools_Terminal", 1);
       setenv("PROMPT_COMMAND","printf '\e]2;%s\a' \"$PWD\"",1);
       setenv("LC_CTYPE","UTF-8",1);

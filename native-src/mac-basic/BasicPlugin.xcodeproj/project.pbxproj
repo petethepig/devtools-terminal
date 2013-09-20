@@ -182,7 +182,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "EXTENSION_PLUGIN=\"${SRCROOT}/../../native/${FULL_PRODUCT_NAME}\"\nORIGINAL_PLUGIN=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\n\n# Remove existing extension plugin\nif [ -e \"${EXTENSION_PLUGIN}\" ]; then\nrm -Rf \"${EXTENSION_PLUGIN}\"\nfi\n\n# Place symbolic link or copy in the extension directory\nif [ \"${CONFIGURATION}\" == \"Debug\" ]; then\nln -sf \"${ORIGINAL_PLUGIN}\" \"${EXTENSION_PLUGIN}\"\nelif [ \"${CONFIGURATION}\" == \"Release\" ]; then\ncp -Rfv \"${ORIGINAL_PLUGIN}\" \"${EXTENSION_PLUGIN}\"\nfi";
+			shellScript = "EXTENSION_PLUGIN=\"${SRCROOT}/../../native/${FULL_PRODUCT_NAME}\"\nORIGINAL_PLUGIN=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\n\n# Remove existing extension plugin\nif [ -e \"${EXTENSION_PLUGIN}\" ]; then\nrm -Rf \"${EXTENSION_PLUGIN}\"\nfi\n\n# Copy in the extension directory\ncp -Rfv \"${ORIGINAL_PLUGIN}\" \"${EXTENSION_PLUGIN}\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 

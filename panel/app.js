@@ -68,11 +68,15 @@
     window.addEventListener("load", setBodyClasses);
   }();
 
-  //http://stackoverflow.com/questions/879152/how-do-i-make-javascript-beep
+  /**
+   * Emulating system 'beep' sound
+   * http://stackoverflow.com/questions/879152/how-do-i-make-javascript-beep
+   */
   var beep = (function () {
     var ctx = new(window.audioContext || window.webkitAudioContext);
-    return function (duration, type, frequency, note, finishedCallback) {
-
+    var playing = false;
+    return function (duration, type, frequency, finishedCallback) {
+      if(playing) return;
       duration = +duration;
 
       // Only 0-4 are valid types.
@@ -86,9 +90,8 @@
         , gain = ctx.createGainNode();
 
       osc.type = type;
+      playing = true;
 
-
-  
       osc.connect(gain);
       gain.connect(ctx.destination);
       gain.gain.value = 0.0;
@@ -98,11 +101,11 @@
       gain.gain.linearRampToValueAtTime(0.0, now + duration/1000);
 
       osc.frequency.value = frequency;
-      osc.noteOff(note);
-      osc.noteOn(note);
+      osc.noteOn(0);
 
       setTimeout(function () {
-        osc.noteOff(note);
+        osc.noteOff(0);
+        playing = false;
         finishedCallback();
       }, duration);
 
@@ -113,18 +116,112 @@
 
   /**
    * Monkey-patching term.js library
-  */
-  var _resize = Terminal.prototype.resize;
+   */
+  Terminal.prototype._resize = Terminal.prototype.resize;
   Terminal.prototype.resize = function() {
-    _resize.apply(this, arguments);
+    this._resize.apply(this, arguments);
     this.emit('resize', [this.cols, this.rows]);
   };
 
+  Terminal.prototype._blur = Terminal.prototype.blur;
+  Terminal.prototype.blur = function() {} // We don't want our terminal to ever blur
 
+  Terminal._insertStyle = Terminal.insertStyle;
+  Terminal.insertStyle = function(document, bg, fg){
+    var style = document.getElementById('term-style');
+    if (style && style.parentNode){
+      style.parentNode.removeChild(style);
+    }
 
-  Terminal.colors[256] = '#fff';
-  Terminal.colors[257] = '#373f48';
+    var head = document.getElementsByTagName('head')[0];
+    if (!head) return;
 
+    var style = document.createElement('style');
+    style.id = 'term-style';
+
+    // textContent doesn't work well with IE for <style> elements.
+    style.innerHTML = ''
+      + 'body {\n'
+      + '  background: ' + bg + ';\n'
+      + '}\n'
+      + '.terminal {\n'
+      + '  color: ' + fg + ';\n'
+      + '  background: ' + bg + ';\n'
+      + '  border-color: ' + bg + ';\n'
+      + '}\n'
+      + '\n'
+      + '.terminal-cursor {\n'
+      + '  color: ' + bg + ';\n'
+      + '  background: ' + fg + ';\n'
+      + '}\n';
+
+    head.insertBefore(style, head.firstChild);
+  }
+
+  /**
+   * Color Themes
+   */
+  function ColorTheme(bg, fg, colors){
+    colors[256] = bg;
+    colors[257] = fg;
+    for(var i = 0; i < 258; i++){
+      if(!colors[i]){
+        colors[i] = Terminal.colors[i];
+      }
+    }
+    return colors;
+  }
+
+  function setColorTheme(theme){
+    Terminal.colors = theme;
+    Terminal.insertStyle(document, theme[256], theme[257]);
+    Array.prototype.forEach.call(document.querySelectorAll('.terminal'),function(term){
+      term.style.backgroundColor = theme[256];
+      term.style.color = theme[257];
+    })
+  }
+
+  var defaultColorThemes = {};
+
+  defaultColorThemes['monokai'] = ColorTheme('#272822', '#F6F5EE', [
+    '#111111',//0 - black
+    '#f33774',//1 - red
+    '#a3e400',//2 - green
+    '#f6f278',//3 - yellow
+    '#947bff',//4 - blue
+    '#c97bff',//5 - pink
+    '#76d6f0',//6 - light blue
+    '#e5e5e5',//7 - white
+    //bright
+    '#4c4c4c',//8
+    '#f777a0',//9
+    '#bfed51',//10
+    '#f9f6a3',//11
+    '#b6a5ff',//12
+    '#daa5ff',//13
+    '#a2e3f5',//14
+    '#ffffff' //15
+  ]);
+
+  defaultColorThemes['monokai_bright'] = ColorTheme('#ffffff', '#313842', [
+    '#111111',//0 - black
+    '#951643',//1 - red
+    '#70aa00',//2 - green
+    '#a6a84d',//3 - yellow
+    '#522cdd',//4 - blue
+    '#7c4db5',//5 - pink
+    '#5aa0b4',//6 - light blue
+    '#bfbfbf',//7 - white
+    //bright
+    '#4c4c4c',//8
+    '#f33774',//9
+    '#a3e400',//10
+    '#f6f278',//11
+    '#947bff',//12
+    '#c97bff',//13
+    '#76d6f0',//14
+    '#ffffff' //15
+  ]);
 
   /**
    * Utility Functions
@@ -232,23 +329,24 @@
     };
 
   }
+  new StorageApiBridge();
 
 
   /**
    * 
    */
 
-  function DataStorage() {
+  function ServerDataStorage() {
 
-    if(DataStorage.instance) {
-      throw new Error("DataStorage constructor must be called only once");
+    if(ServerDataStorage.instance) {
+      throw new Error("ServerDataStorage constructor must be called only once");
     }else{
-      DataStorage.instance = this;
+      ServerDataStorage.instance = this;
     }
 
     EventEmitter.call(this);
 
-    var storageAPI = new StorageApiBridge();
+    var storageAPI = StorageApiBridge.instance;
 
     var self = this;
 
@@ -274,7 +372,7 @@
     }
   }
 
-  inherits(DataStorage, EventEmitter);
+  inherits(ServerDataStorage, EventEmitter);
 
 
   /**
@@ -442,12 +540,19 @@
     initialize: function(options) {
       var self = this;
       
-      this.openButton = document.querySelector(".address-bar-btn.open-btn");
+      this.openButton = document.querySelector(".open-btn");
+      this.themeToggleButton = document.querySelector(".theme-toggle-btn");
+      
+      StorageApiBridge.instance.get(['colorTheme'], function(items){
+        self.themeToggleButton.classList.toggle('white', items['colorTheme'] == 'monokai');
+      });
+
       this.addressInput = this.$("input[type='text']")[0];
       this.addressInput.value = "http://";
       this.form = this.$("form")[0];
       
       this.$on(this.openButton, 'click', this.openButtonClick);
+      this.$on(this.themeToggleButton, 'click', this.themeToggleButtonClick);
       this.$on(this.form, 'submit', this.submitHandler);
       this.$on(this.addressInput, "focus", this.addressFocus);
       this.$on(this.addressInput, "blur", this.addressBlur);
@@ -469,15 +574,24 @@
       this.suggestionsCount = 0;
 
       this.updateServers = this.updateServers.bind(this);
-      DataStorage.instance.on('change', this.updateServers);
+      ServerDataStorage.instance.on('change', this.updateServers);
       this.updateServers();
 
     },
     updateServers: function(ev) {
-      this.servers = Object.keys(DataStorage.instance.servers);
+      this.servers = Object.keys(ServerDataStorage.instance.servers);
     },
     openButtonClick: function(){
       this.visible ? this.hide() : this.show();
+    },
+    themeToggleButtonClick: function(){
+      var self = this;
+      StorageApiBridge.instance.get(['colorTheme'], function(items){
+        var newTheme = items['colorTheme'] == 'monokai' ? 'monokai_bright' : 'monokai';
+        self.themeToggleButton.classList.toggle('white', newTheme == 'monokai');
+        setColorTheme(defaultColorThemes[newTheme]);
+        StorageApiBridge.instance.set({'colorTheme': newTheme},function(){});
+      });
     },
     submitHandler: function(ev) {
       ev.preventDefault();
@@ -561,6 +675,7 @@
 
     },
     show: function() {
+      return; // Temporary measure
       this.visible = true;
       this.element.classList.add("show");
       this.openButton.classList.remove("show");
@@ -644,8 +759,7 @@
       });
 
       this.term.on('bell', function() {
-        //beep(250,3,440/4,1);
-        beep(250/2,0,440/2,2);
+        beep(250/2,0,440/2);
       });
 
       this.term.on('resize', function(data) {
@@ -692,7 +806,7 @@
       }
 
       this.socket.on('connect', function() {
-        DataStorage.instance.saveCredentials(self.credentials);
+        ServerDataStorage.instance.saveCredentials(self.credentials);
         self.emit('connect');
       });
 
@@ -762,7 +876,7 @@
 
 
   // Load data from persistent storage
-  var ds = new DataStorage();
+  var ds = new ServerDataStorage();
   ds.on('ready', function(){
     if(document.readyState == "complete"){
       main();
@@ -774,7 +888,21 @@
   });
   ds.load();
 
+  StorageApiBridge.instance.get(["colorTheme"], function(items){
+    if(!items['colorTheme']){
+      items['colorTheme'] = 'monokai_bright';
+    }
+    StorageApiBridge.instance.set(items, function(){
+      Terminal.colors = defaultColorThemes[items['colorTheme']];
+      main();
+    });
+  });
+
+  var totalPreconditions = 1;
   function main(){
+    //Wait until everything is loaded
+    if(totalPreconditions-- != 0) return;
+
     // Initialize all components
     var authModal = new AuthModalComponent({
       element: document.querySelector(".auth-modal")
@@ -791,7 +919,6 @@
     var terminal = new TerminalComponent();
     document.querySelector(".tab").appendChild(terminal.element);
     terminal.initTerminal();
-    //terminal.term.element.childNodes[3].innerHTML = 'Check out this <a href="http://blog.dfilimonov.com/2013/09/12/devtools-remote-terminal.html" target="_blank" >blog post</a> for instructions';
 
     // Setup authModal events
     authModal.on('submit', function(login, password) {
@@ -814,7 +941,7 @@
 
     // Setup addressBar events
     addressBar.on('submit', function(url) {
-      var credentials = DataStorage.instance.servers[url] || {};
+      var credentials = ServerDataStorage.instance.servers[url] || {};
       terminal.connect({
         url: url,
         login: credentials.login || "admin",
@@ -864,7 +991,7 @@
 
   }
 
-
+  window.StorageApiBridge = StorageApiBridge;
 
 }).call(this);
 
