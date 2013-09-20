@@ -32,9 +32,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/ttydefaults.h>
-#import <AppKit/AppKit.h>
 
-#include "BasicPlugin.h"
+#include "DevtoolsTerminal.h"
 #include "hashmap.h"
 #include "utf8.h"
 
@@ -100,6 +99,8 @@ void define_method(const char *name, method_t func){
   hashmap_put(methodsTable, (char *)name, (void *)func);
 }
 
+
+
 static void *handleIO(void * userData){
   MyNPObject *obj = (MyNPObject *)userData;
   int m, s, pid;
@@ -137,7 +138,11 @@ static void *handleIO(void * userData){
         cwd = getenv("HOME");
       }
       
-      chdir(cwd);
+      if(chdir(cwd) != 0){
+        if(chdir(getenv("HOME")) != 0){
+          exit(-1);
+        }
+      }
       
       
       pass = getpwuid(getuid());
@@ -159,21 +164,16 @@ static void *handleIO(void * userData){
       setenv("TERM_PROGRAM", "Devtools_Terminal", 1);
       setenv("PROMPT_COMMAND","printf '\e]2;%s\a' \"$PWD\"",1);
       setenv("LC_CTYPE","UTF-8",1);
-      args = (char *[]){obj->cmd, (char *)"-i", NULL};
-      
-      //execvp(args[0], args);
-      execle(obj->cmd, (char *)"-i", NULL, environ);
+
+      args = (char *[]){ (char *)"-i", NULL };
+      execve(obj->cmd, args, environ);
+
       exit(0);
-      
-      break;
-    
     default: // master
       close(s);
       
       pollfd ufds = {m, POLLIN | POLLPRI};
       pollfd *ufds_arr = { &ufds };
-      
-      
       
       obj->fd = m;
       obj->pid = pid;
@@ -313,9 +313,9 @@ bool method_data(MyNPObject *obj, const NPVariant *args,
 
 bool method_debug(MyNPObject *obj, const NPVariant *args,
                   uint32_t argCount, NPVariant *result){
-    char * cwd = getcwd(NULL, 0);
-    STRINGZ_TO_NPVARIANT(cwd, *result);
-    return true;
+  char * cwd = getcwd(NULL, 0);
+  STRINGZ_TO_NPVARIANT(cwd, *result);
+  return true;
 }
 
 bool method_resize(MyNPObject *obj, const NPVariant *args, 
@@ -339,15 +339,6 @@ bool method_resize(MyNPObject *obj, const NPVariant *args,
   }else{
     return false;
   }
-}
-
-bool method_bell(MyNPObject *obj, const NPVariant *args, 
-                 uint32_t argCount, NPVariant *result){
-  
-    NSBeep();
-  
-    VOID_TO_NPVARIANT(*result);
-    return true;
 }
 
 
@@ -374,7 +365,6 @@ NPError NP_Initialize(NPNetscapeFuncs* browserFuncs) {
   define_method("data", &method_data);
   define_method("debug", &method_debug);
   define_method("resize", &method_resize);
-  define_method("bell", &method_bell);
 
   return NPERR_NO_ERROR;
 }

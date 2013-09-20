@@ -83,4 +83,4 @@ extern int hashmap_length(map_t in);
 
 #pragma GCC visibility pop
 
-#endif __HASHMAP_H__
+#endif

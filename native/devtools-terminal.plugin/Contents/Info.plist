@@ -33,13 +33,13 @@
 	<key>DTXcodeBuild</key>
 	<string>5A11386k</string>
 	<key>WebPluginDescription</key>
-	<string>Devtools Terminal Plugin</string>
+	<string>Terminal for Chrome Devtools</string>
 	<key>WebPluginMIMETypes</key>
 	<dict>
 		<key>application/x-devtools-terminal</key>
 		<dict>
 			<key>WebPluginTypeDescription</key>
-			<string>Basic plugin sample</string>
+			<string>Terminal for Chrome Devtools</string>
 		</dict>
 	</dict>
 	<key>WebPluginName</key>

@@ -21,11 +21,11 @@
 		<key>application/x-devtools-terminal</key>
 		<dict>
 			<key>WebPluginTypeDescription</key>
-			<string>Basic plugin sample</string>
+			<string>Terminal for Chrome Devtools</string>
 		</dict>
 	</dict>
 	<key>WebPluginDescription</key>
-	<string>Devtools Terminal Plugin</string>
+	<string>Terminal for Chrome Devtools</string>
 	<key>WebPluginName</key>
 	<string>Devtools Terminal</string>
 </dict>
