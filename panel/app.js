@@ -123,8 +123,14 @@
     this.emit('resize', [this.cols, this.rows]);
   };
 
+  Terminal.prototype._open = Terminal.prototype.open;
+  Terminal.prototype.open = function() {
+    this._open.apply(this, arguments);
+    this.element.setAttribute('spellcheck', 'false');
+  }
+
   Terminal.prototype._blur = Terminal.prototype.blur;
-  Terminal.prototype.blur = function() {} // We don't want our terminal to ever blur
+  Terminal.prototype.blur = function() {} // We don't want our terminal to ever go blur
 
   Terminal._insertStyle = Terminal.insertStyle;
   Terminal.insertStyle = function(document, bg, fg){
