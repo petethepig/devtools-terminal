@@ -390,7 +390,6 @@ Terminal.defaults = {
   geometry: [80, 24],
   cursorBlink: true,
   visualBell: false,
-  soundBell: false,
   popOnBell: false,
   scrollback: 1000,
   screenKeys: false,
@@ -652,6 +651,23 @@ Terminal.insertStyle = function(document, bg, fg) {
     + '  color: ' + bg + ';\n'
     + '  background: ' + fg + ';\n'
     + '}\n';
+
+  // var out = '';
+  // each(Terminal.colors, function(color, i) {
+  //   if (i === 256) {
+  //     i = 'default';
+  //     out += '\n.term-bg-color-' + i + ' { background-color: ' + color + '; }';
+  //     return;
+  //   }
+  //   if (i === 257) {
+  //     i = 'default';
+  //     out += '\n.term-fg-color-' + i + ' { color: ' + color + '; }';
+  //     return;
+  //   }
+  //   out += '\n.term-bg-color-' + i + ' { background-color: ' + color + '; }';
+  //   out += '\n.term-fg-color-' + i + ' { color: ' + color + '; }';
+  // });
+  // style.innerHTML += out + '\n';
 
   head.insertBefore(style, head.firstChild);
 };
@@ -1152,8 +1168,8 @@ Terminal.prototype.refresh = function(start, end) {
     , width
     , data
     , attr
-    , fgColor
-    , bgColor
+    , bg
+    , fg
     , flags
     , row
     , parent;
@@ -1205,8 +1221,8 @@ Terminal.prototype.refresh = function(start, end) {
           } else {
             out += '<span style="';
 
-            bgColor = data & 0x1ff;
-            fgColor = (data >> 9) & 0x1ff;
+            bg = data & 0x1ff;
+            fg = (data >> 9) & 0x1ff;
             flags = data >> 18;
 
             // bold
@@ -1215,7 +1231,7 @@ Terminal.prototype.refresh = function(start, end) {
                 out += 'font-weight:bold;';
               }
               // See: XTerm*boldColors
-              if (fgColor < 8) fgColor += 8;
+              if (fg < 8) fg += 8;
             }
 
             // underline
@@ -1235,11 +1251,11 @@ Terminal.prototype.refresh = function(start, end) {
 
             // inverse
             if (flags & 8) {
-              bgColor = (data >> 9) & 0x1ff;
-              fgColor = data & 0x1ff;
+              bg = (data >> 9) & 0x1ff;
+              fg = data & 0x1ff;
               // Should inverse just be before the
               // above boldColors effect instead?
-              if ((flags & 1) && fgColor < 8) fgColor += 8;
+              if ((flags & 1) && fg < 8) fg += 8;
             }
 
             // invisible
@@ -1247,15 +1263,21 @@ Terminal.prototype.refresh = function(start, end) {
               out += 'visibility:hidden;';
             }
 
-            if (bgColor !== 256) {
+            // out += '" class="'
+            //   + 'term-bg-color-' + (bg === 256 ? 'default' : bg)
+            //   + ' '
+            //   + 'term-fg-color-' + (fg === 257 ? 'default' : fg)
+            //   + '">';
+
+            if (bg !== 256) {
               out += 'background-color:'
-                + this.colors[bgColor]
+                + this.colors[bg]
                 + ';';
             }
 
-            if (fgColor !== 257) {
+            if (fg !== 257) {
               out += 'color:'
-                + this.colors[fgColor]
+                + this.colors[fg]
                 + ';';
             }
 
@@ -1740,7 +1762,7 @@ Terminal.prototype.write = function(data) {
           if (ch === '\x1b') i++;
 
           this.params.push(this.currentParam);
-          console.log(this.params[0]);
+
           switch (this.params[0]) {
             case 0:
             case 1:
@@ -2671,7 +2693,6 @@ Terminal.prototype.send = function(data) {
 };
 
 Terminal.prototype.bell = function() {
-  this.emit('bell');
   if (!this.visualBell) return;
   var self = this;
   this.element.style.borderColor = 'white';

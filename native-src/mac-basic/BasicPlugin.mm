@@ -272,13 +272,21 @@ bool method_init(MyNPObject *obj, const NPVariant *args, uint32_t argCount, NPVa
     if(browser->getproperty(obj->npp, options, 
         browser->getstringidentifier("cmd"), &cmd_v) 
         && cmd_v.type != NPVariantType_Void){
-      obj->cmd = (char *)NPVARIANT_TO_STRING(cmd_v).UTF8Characters;
+      NPString str = NPVARIANT_TO_STRING(cmd_v);
+      char *buf = (char *)malloc(sizeof(char)*(str.UTF8Length +1));
+      memcpy(buf, str.UTF8Characters, str.UTF8Length);
+      buf[str.UTF8Length]='\0';
+      obj->cmd = buf;
     }
 
     if(browser->getproperty(obj->npp, options, 
         browser->getstringidentifier("cwd"), &cwd_v) 
         && cwd_v.type != NPVariantType_Void){
-      obj->cwd = (char *)NPVARIANT_TO_STRING(cwd_v).UTF8Characters;
+      NPString str2 = NPVARIANT_TO_STRING(cwd_v);
+      char *buf2 = (char *)malloc(sizeof(char)*(str2.UTF8Length +1));
+      memcpy(buf2, str2.UTF8Characters, str2.UTF8Length);
+      buf2[str2.UTF8Length]='\0';
+      obj->cwd = buf2;
     }
     
     pthread_t thread;

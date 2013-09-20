@@ -123,6 +123,12 @@
     this.emit('resize', [this.cols, this.rows]);
   };
 
+  Terminal.prototype._bell = Terminal.prototype.bell;
+  Terminal.prototype.bell = function() {
+    this._bell.apply(this, arguments);
+    this.emit('bell');
+  }
+
   Terminal.prototype._open = Terminal.prototype.open;
   Terminal.prototype.open = function() {
     this._open.apply(this, arguments);
@@ -178,18 +184,19 @@
     return colors;
   }
 
+  var DefaultColorThemes = {};
+
   function setColorTheme(theme){
-    Terminal.colors = theme;
-    Terminal.insertStyle(document, theme[256], theme[257]);
+    var colors = DefaultColorThemes[theme]
+    Terminal.colors = colors;
+    Terminal.insertStyle(document, colors[256], colors[257]);
     Array.prototype.forEach.call(document.querySelectorAll('.terminal'),function(term){
-      term.style.backgroundColor = theme[256];
-      term.style.color = theme[257];
+      term.style.backgroundColor = colors[256];
+      term.style.color = colors[257];
     })
   }
 
-  var defaultColorThemes = {};
-
-  defaultColorThemes['monokai'] = ColorTheme('#272822', '#F6F5EE', [
+  DefaultColorThemes['monokai'] = ColorTheme('#272822', '#F6F5EE', [
     '#111111',//0 - black
     '#f33774',//1 - red
     '#a3e400',//2 - green
@@ -209,7 +216,7 @@
     '#ffffff' //15
   ]);
 
-  defaultColorThemes['monokai_bright'] = ColorTheme('#ffffff', '#313842', [
+  DefaultColorThemes['monokai_bright'] = ColorTheme('#ffffff', '#313842', [
     '#111111',//0 - black
     '#951643',//1 - red
     '#70aa00',//2 - green
@@ -339,47 +346,50 @@
 
 
   /**
-   * 
+   * Settings
    */
 
-  function ServerDataStorage() {
-
-    if(ServerDataStorage.instance) {
-      throw new Error("ServerDataStorage constructor must be called only once");
-    }else{
-      ServerDataStorage.instance = this;
-    }
+  function Settings() {
 
     EventEmitter.call(this);
 
     var storageAPI = StorageApiBridge.instance;
-
     var self = this;
-
-    this.ready = false;
+    var localCopy = {
+      servers: {},
+      colorTheme: 'monokai_bright'
+    };
 
     this.load = function(){
-      storageAPI.get("servers", function(items) {
-        self.servers = items.servers || {};
+      storageAPI.get(null, function(items) {
+        localCopy = extend(localCopy, items || {});
         self.ready = true;
         self.emit('ready');
       });
     }
 
-    this.saveCredentials = function(obj) {
-      var credentials = extend({}, obj); // cloning the credentials
-      var url = credentials.url;
-      delete credentials.url;
-      delete credentials.password;
-
-      self.servers[url] = credentials;
-      storageAPI.set({servers: self.servers}, function() {});
-      self.emit('change');
+    this.get = function(a){
+      return localCopy[a];
     }
+
+    this.set = function(a,b){
+      localCopy[a] = b;
+      var data = {};
+      data[a] = b;
+      storageAPI.set(data, function(){});
+    }
+
+    this.updateServerInfo = function (url, obj) {
+      var servers = localCopy['servers'] || {};
+      var server = servers[url] || {};
+      extend(server, obj);
+      servers[url] = server;
+      this.set('servers', servers);
+    }
+
   }
-
-  inherits(ServerDataStorage, EventEmitter);
-
+  inherits(Settings, EventEmitter);
+  Settings = new Settings();
 
   /**
    * Abstract Component class
@@ -549,9 +559,7 @@
       this.openButton = document.querySelector(".open-btn");
       this.themeToggleButton = document.querySelector(".theme-toggle-btn");
       
-      StorageApiBridge.instance.get(['colorTheme'], function(items){
-        self.themeToggleButton.classList.toggle('white', items['colorTheme'] == 'monokai');
-      });
+      this.themeToggleButton.classList.toggle('white', Settings.get('colorTheme') == 'monokai');
 
       this.addressInput = this.$("input[type='text']")[0];
       this.addressInput.value = "http://";
@@ -579,25 +587,15 @@
       this.selectedSuggestion = 0;
       this.suggestionsCount = 0;
 
-      this.updateServers = this.updateServers.bind(this);
-      ServerDataStorage.instance.on('change', this.updateServers);
-      this.updateServers();
-
-    },
-    updateServers: function(ev) {
-      this.servers = Object.keys(ServerDataStorage.instance.servers);
     },
     openButtonClick: function(){
       this.visible ? this.hide() : this.show();
     },
     themeToggleButtonClick: function(){
-      var self = this;
-      StorageApiBridge.instance.get(['colorTheme'], function(items){
-        var newTheme = items['colorTheme'] == 'monokai' ? 'monokai_bright' : 'monokai';
-        self.themeToggleButton.classList.toggle('white', newTheme == 'monokai');
-        setColorTheme(defaultColorThemes[newTheme]);
-        StorageApiBridge.instance.set({'colorTheme': newTheme},function(){});
-      });
+      var newTheme = Settings.get('colorTheme') == 'monokai' ? 'monokai_bright' : 'monokai';
+      this.themeToggleButton.classList.toggle('white', newTheme == 'monokai');
+      setColorTheme(newTheme);
+      Settings.set('colorTheme', newTheme);
     },
     submitHandler: function(ev) {
       ev.preventDefault();
@@ -659,7 +657,13 @@
     },
     updateSuggestions: function() {
       var str = this.latestValue || "";
-      var results = fuzzy.filter(str, this.servers,  { pre: '<strong>', post: '</strong>' });
+      var servers = Settings.get('servers') || {};
+      var serversArray = [];
+      for(var i in servers){
+        serversArray.push(i);
+      }
+
+      var results = fuzzy.filter(str, serversArray, { pre: '<strong>', post: '</strong>' });
       var matches = results.map(function(el) { return el.string; });
 
       if(this.visible && str !== "" && document.activeElement == this.addressInput && matches.length > 0) {
@@ -706,7 +710,8 @@
       this.options = options; 
 
       var plugin = document.createElement('embed');
-      plugin.type = 'application/x-devtools-terminal'
+      plugin.setAttribute('hidden', 'true');
+      plugin.type = 'application/x-devtools-terminal';
       document.body.appendChild(plugin);
       
       window.plugin = this.plugin = this.element = plugin;
@@ -739,7 +744,7 @@
     initialize: function(options) {
       this.element = document.createElement("div");
       this.element.className = "terminal-container";
-      this.credentials = {};
+      this.options = {};
     },
     initTerminal: function() {
       var self = this;
@@ -761,7 +766,8 @@
 
 
       this.term.on('title', function(data) {
-        self.title = data;
+        self.cwd = data;
+        Settings.updateServerInfo(self.url, {cwd: self.cwd});
       });
 
       this.term.on('bell', function() {
@@ -782,26 +788,32 @@
       });
 
     },
-    connect: function(credentials) {
+    connect: function(options) {
       var self = this;
 
-      extend(this.credentials, credentials);
+      options = options || {};
+      //extend(this.options, options);
+
+      this.url = this.url || options.url;
+      this.login = this.login || options.login;
+      this.password = this.password || options.password;
+      this.cwd = this.cwd || options.cwd;
 
       if(this.socket) {
         this.utilizeSocket();
       }
 
       var term = this.term;
-      var authData = btoa(this.credentials.login + ":" + this.credentials.password);
+      var authData = btoa(this.login + ":" + this.password);
       var size = this.maxSize();
-      var url = this.credentials.url;
+      var url = this.url;
 
 
-      if(typeof credentials === "undefined"){
+      if(url == "localhost"){
         this.socket = new PluginComponent({
           rows: size.rows,
           cols: size.cols,
-          //cmd: "/bin/bash"
+          cwd: this.cwd
         });
       }else{
         this.socket = io.connect(url, {
@@ -812,7 +824,7 @@
       }
 
       this.socket.on('connect', function() {
-        ServerDataStorage.instance.saveCredentials(self.credentials);
+        Settings.updateServerInfo(self.url, {login:self.login});
         self.emit('connect');
       });
 
@@ -882,8 +894,7 @@
 
 
   // Load data from persistent storage
-  var ds = new ServerDataStorage();
-  ds.on('ready', function(){
+  Settings.on('ready', function(){
     if(document.readyState == "complete"){
       main();
     }else{
@@ -892,22 +903,15 @@
       });
     }
   });
-  ds.load();
+  Settings.load();
 
-  StorageApiBridge.instance.get(["colorTheme"], function(items){
-    if(!items['colorTheme']){
-      items['colorTheme'] = 'monokai_bright';
-    }
-    StorageApiBridge.instance.set(items, function(){
-      Terminal.colors = defaultColorThemes[items['colorTheme']];
-      main();
-    });
-  });
-
-  var totalPreconditions = 1;
   function main(){
-    //Wait until everything is loaded
-    if(totalPreconditions-- != 0) return;
+
+    // Set default values for Settings
+
+    if(!Settings.get('colorTheme')){
+      Settings.set('colorTheme', 'monokai_bright'); 
+    }
 
     // Initialize all components
     var authModal = new AuthModalComponent({
@@ -922,7 +926,11 @@
       element: document.querySelector(".address-bar-wrapper")
     });
 
+
+    setColorTheme(Settings.get('colorTheme'));
+
     var terminal = new TerminalComponent();
+
     document.querySelector(".tab").appendChild(terminal.element);
     terminal.initTerminal();
 
@@ -947,11 +955,12 @@
 
     // Setup addressBar events
     addressBar.on('submit', function(url) {
-      var credentials = ServerDataStorage.instance.servers[url] || {};
+      var options = Settings.get('servers')[url] || {};
       terminal.connect({
         url: url,
-        login: credentials.login || "admin",
-        password: credentials.password || ""
+        login: options.login || "admin",
+        password: options.password || "",
+        cwd: options.cwd
       });
     });
 
@@ -963,7 +972,7 @@
 
     terminal.on('handshake error', function(data) {
       authModal.show();
-      authModal.loginInput.value = terminal.credentials.login;
+      authModal.loginInput.value = terminal.options.login;
       authModal.passwordInput.value = "";
       asyncCall(function() {
         if(authModal.loginInput.value === "") {
@@ -991,13 +1000,15 @@
     //addressBar.show();
 
     // Start with local terminal
+    var server = Settings.get("servers")["localhost"] || {};
+    terminal.connect({
+      url: "localhost",
+      cwd: server.cwd
+    });
 
-    terminal.connect();
-
+    window.Settings = Settings;
 
   }
-
-  window.StorageApiBridge = StorageApiBridge;
 
 }).call(this);
 
