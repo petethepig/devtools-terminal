@@ -856,9 +856,9 @@
       options = options || {};
       //extend(this.options, options);
 
-      this.url = options.url || this.url || "";
-      this.login = options.login || this.login || "";
-      this.password = options.password || this.password || "";
+      this.url = options.url;
+      this.login = options.login;
+      this.password = options.password;
       this.cwd = this.cwd || options.cwd;
       this.cmd = this.cmd || options.cmd;
 
@@ -1038,12 +1038,12 @@
     });
 
     terminal.on('handshake error', function(data) {
-      authModal.show();
       authModal.setValues(
         terminal.url,
         terminal.login,
         ""
       );
+      authModal.show();
       asyncCall(function() {
         if(authModal.loginInput.value === "") {
           authModal.loginInput.focus();
@@ -1058,9 +1058,8 @@
         Settings.set('last_url', terminal.url);
         Settings.set('last_login', terminal.login);
       }
-      if(authModal) {
-        authModal.hide();
-      }
+      authModal.hide();
+      errorModal.hide();
     });
 
     terminal.on('disconnect', function(data) {
