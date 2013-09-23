@@ -12,6 +12,8 @@
 	<string>Build</string>
 	<key>DerivedDataLocationStyle</key>
 	<string>Default</string>
+	<key>HasAskedToTakeAutomaticSnapshotBeforeSignificantChanges</key>
+	<true/>
 	<key>IssueFilterStyle</key>
 	<string>ShowActiveSchemeOnly</string>
 	<key>LiveSourceIssuesEnabled</key>
@@ -19,7 +21,7 @@
 	<key>SharedBuildFolderName</key>
 	<string>Build</string>
 	<key>SnapshotAutomaticallyBeforeSignificantChanges</key>
-	<true/>
+	<false/>
 	<key>SnapshotLocationStyle</key>
 	<string>Default</string>
 </dict>

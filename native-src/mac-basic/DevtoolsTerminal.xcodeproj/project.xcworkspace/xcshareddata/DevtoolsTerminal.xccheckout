@@ -5,19 +5,19 @@
 	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
 	<false/>
 	<key>IDESourceControlProjectIdentifier</key>
-	<string>2CBEA636-9C5F-4A51-B392-D64C6ECAACB1</string>
+	<string>75677767-12F7-412E-8287-EBEB6F29FEF1</string>
 	<key>IDESourceControlProjectName</key>
-	<string>BasicPlugin</string>
+	<string>DevtoolsTerminal</string>
 	<key>IDESourceControlProjectOriginsDictionary</key>
 	<dict>
-		<key>AB652CA1-3ECF-4781-888E-4334D64C17F0</key>
+		<key>413B31B6-B3B1-456C-995C-79515B6542E9</key>
 		<string>ssh://github.com/petethepig/devtools-remote-terminal.git</string>
 	</dict>
 	<key>IDESourceControlProjectPath</key>
-	<string>native-src/mac-basic/BasicPlugin.xcodeproj/project.xcworkspace</string>
+	<string>native-src/mac-basic/DevtoolsTerminal.xcodeproj/project.xcworkspace</string>
 	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
 	<dict>
-		<key>AB652CA1-3ECF-4781-888E-4334D64C17F0</key>
+		<key>413B31B6-B3B1-456C-995C-79515B6542E9</key>
 		<string>../../../..</string>
 	</dict>
 	<key>IDESourceControlProjectURL</key>
@@ -25,14 +25,14 @@
 	<key>IDESourceControlProjectVersion</key>
 	<integer>110</integer>
 	<key>IDESourceControlProjectWCCIdentifier</key>
-	<string>AB652CA1-3ECF-4781-888E-4334D64C17F0</string>
+	<string>413B31B6-B3B1-456C-995C-79515B6542E9</string>
 	<key>IDESourceControlProjectWCConfigurations</key>
 	<array>
 		<dict>
 			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
 			<string>public.vcs.git</string>
 			<key>IDESourceControlWCCIdentifierKey</key>
-			<string>AB652CA1-3ECF-4781-888E-4334D64C17F0</string>
+			<string>413B31B6-B3B1-456C-995C-79515B6542E9</string>
 			<key>IDESourceControlWCCName</key>
 			<string>devtools-terminal</string>
 		</dict>

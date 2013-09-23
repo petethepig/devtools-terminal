@@ -16,8 +16,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "8D01CCC60486CAD60068D4B7"
                BuildableName = "devtools-terminal.plugin"
-               BlueprintName = "BasicPlugin"
-               ReferencedContainer = "container:BasicPlugin.xcodeproj">
+               BlueprintName = "DevtoolsTerminal"
+               ReferencedContainer = "container:DevtoolsTerminal.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>

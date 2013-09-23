@@ -31,16 +31,11 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#ifndef __BasicPlugin__utf8__
-#define __BasicPlugin__utf8__
+#ifndef __DevtoolsTerminal__utf8__
+#define __DevtoolsTerminal__utf8__
 
-#include <iostream>
-
-#endif /* defined(__BasicPlugin__utf8__) */
-
+#define UTF_SIZ       4
 #undef B0
-
-
 #pragma GCC visibility push(default)
   enum { B0=1, B1=2, B2=4, B3=8, B4=16, B5=32, B6=64, B7=128 };
   typedef unsigned char uchar;
@@ -50,3 +45,5 @@ DEALINGS IN THE SOFTWARE.
   extern int utf8decode(char *, long *);
   extern int isfullutf8(char *, int);
 #pragma GCC visibility pop
+
+#endif /* defined(__DevtoolsTerminal__utf8__) */

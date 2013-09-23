@@ -19,228 +19,223 @@
  * drawing model.
  */
 
-#define TTYDEFCHARS
-#define UTF_SIZ       4
-
 #include <util.h>
-#include <pthread.h>
 #include <poll.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <pthread.h>
 #include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ttydefaults.h>
 
 #include "DevtoolsTerminal.h"
 #include "hashmap.h"
 #include "utf8.h"
 
 extern char **environ;
+NPNetscapeFuncs* browser;
+map_t methodsTable;
 
 
+class PluginInstance : public NPObject {
+  public:
+    NPP npp;
+    NPObject *dataCallback;
+    pid_t pid;
+    int fd;
+    char *cwd; // working directory
+    char *cmd;
+    int rows;
+    int cols;
 
+    explicit PluginInstance(NPP _npp) : npp(_npp) {}
 
-typedef struct PluginInstance {
-  NPP npp;
-  NPWindow window;
-} PluginInstance;
-
-
-struct MyNPObject : public NPObject {
-  NPP npp;
-  NPObject *dataCallback;
-  pid_t pid;
-  int fd;
-  char *cwd;
-  char *cmd;
-  int rows;
-  int cols;
-  
-  explicit MyNPObject(NPP _npp) : npp(_npp) {}
 };
 
+typedef bool (*method_t)(PluginInstance *obj, const NPVariant *args,
+                         uint32_t argCount, NPVariant *result);
 
-struct DataContainer{
-  MyNPObject *obj;
-  NPVariant data;
-};
-
-
-typedef bool (*method_t)(MyNPObject *obj, const NPVariant *args, uint32_t argCount, NPVariant *result);
-
-
-static NPNetscapeFuncs* browser;
-static map_t methodsTable;
-
-
-
-static void sendDataBack(void * userData){
-  DataContainer *dc = (DataContainer *)userData;
-  MyNPObject *obj = dc->obj;
-  NPVariant str = dc->data;
-  NPVariant args[1] = { str };
+void sendDataBack(void * userData){
+  void **arr = (void **)userData;
+  PluginInstance *obj = (PluginInstance *)(arr[0]);
+  NPVariant *data = (NPVariant *)(arr[1]);
   NPVariant result;
-  
-  browser->invokeDefault(obj->npp, obj->dataCallback, args, 1, &result);
+  browser->invokeDefault(obj->npp, obj->dataCallback, data, 1, &result);
+  browser->releasevariantvalue(data);
+  browser->releasevariantvalue(&result);
+  browser->memfree(arr);
+  browser->memfree(data);
 }
 
-static void closeConnection(MyNPObject *obj){
+void closeConnection(PluginInstance *obj){
   NPVariant *data = new NPVariant;
   NULL_TO_NPVARIANT(*data);
-  DataContainer *dc = new DataContainer;
-  dc->obj = obj;
-  dc->data = *data;
-  browser->pluginthreadasynccall(obj->npp, sendDataBack, dc);
+  
+  void **arr = (void **) browser->memalloc(sizeof(void *) * 2);
+  arr[0] = obj;
+  arr[1] = data;
+  browser->pluginthreadasynccall(obj->npp, sendDataBack, arr);
 }
 
-void define_method(const char *name, method_t func){
-  hashmap_put(methodsTable, (char *)name, (void *)func);
+char **split(char *str){
+  int i = 0;
+  int l = strlen(str);
+
+  int token_start = 0;
+  char **tokens;
+  int tokens_length = 1;
+  while(i < l){
+    tokens_length += str[i++] == ' ';
+  }
+  tokens = (char **)malloc((sizeof(char*)*tokens_length));
+  
+  i = 0;
+  int j = 0;
+  int token_l;
+  while(i < l){
+    if((str[i] == ' ' && i != token_start) || ((i + 1) == l && i++)){
+      token_l = i - token_start + 1;
+      tokens[j] = (char *)malloc((sizeof(char*)*(token_l)));
+      memcpy(tokens[j], &str[token_start], token_l - 1);
+      tokens[j][token_l - 1] = '\0';
+      j++;
+      token_start = i + 1;
+    }
+    i++;
+  }
+  tokens[tokens_length - 1] = NULL;
+  return tokens;
 }
 
+void slave(PluginInstance *obj, int m, int s, int pid){
+  setsid(); // creates a new session
+  dup2(s, STDIN_FILENO); //duplicate a file descriptor
+  dup2(s, STDOUT_FILENO);
+  dup2(s, STDERR_FILENO);
+  
+  ioctl(s, TIOCSCTTY, NULL); // Make the given terminal the controlling
+                             // terminal of the calling process
+  
+  close(s); // closes a file descriptor
+  close(m);
+  
+  char *cwd;
+  if(obj->cwd != NULL){
+    cwd = obj->cwd;
+  }else{
+    cwd = getenv("HOME");
+  }
+  
+  if(chdir(cwd) != 0){
+    if(chdir(getenv("HOME")) != 0){
+      exit(-1);
+    }
+  }
+  
+  passwd *pass = getpwuid(getuid());
+  if(pass) {
+    setenv("LOGNAME", pass->pw_name, 1);
+    setenv("USER", pass->pw_name, 1);
+    setenv("SHELL", pass->pw_shell, 0);
+    setenv("HOME", pass->pw_dir, 0);
+  }
+  
+  signal(SIGCHLD, SIG_DFL);
+  signal(SIGHUP,  SIG_DFL);
+  signal(SIGINT,  SIG_DFL);
+  signal(SIGQUIT, SIG_DFL);
+  signal(SIGTERM, SIG_DFL);
+  signal(SIGALRM, SIG_DFL);
 
+  setenv("TERM", "xterm-256color", 1);
+  setenv("TERM_PROGRAM", "Devtools_Terminal", 1);
+  setenv("PROMPT_COMMAND","printf '\e]2;%s\a' \"$PWD\"",1);
+  setenv("LC_CTYPE","UTF-8",1);
+  
+  char **array = split(obj->cmd);
+  
+  execve(array[0], &array[1], environ);
+  exit(0);
+}
 
-static void *handleIO(void * userData){
-  MyNPObject *obj = (MyNPObject *)userData;
+void master(PluginInstance *obj, int m, int s, int pid){
+  close(s);
+  
+  pollfd ufds = {m, POLLIN | POLLPRI};
+  
+  obj->fd = m;
+  obj->pid = pid;
+
+  char last_utf_char[UTF_SIZ];
+  int buflen = 0;
+  
+  int a;
+  
+  while(1){
+    if((a = poll(&ufds, 1, -1)) > 0){
+      
+      char *buffer = (char *)browser->memalloc(sizeof(char) * (BUFSIZ + buflen));
+      int bytesRead = read(m, buffer + buflen, BUFSIZ);
+      
+      if(bytesRead <= 0){
+        browser->memfree(buffer);
+        break;
+      }
+      
+      char *ptr = buffer;
+      
+      if(buflen > 0){
+        memcpy(ptr, last_utf_char, buflen);
+      }
+      
+      int charsize; /* size of utf8 char in bytes */
+      long utf8c;
+      buflen = buflen + bytesRead;
+      while(buflen >= UTF_SIZ || isfullutf8(ptr,buflen)) {
+        charsize = utf8decode(ptr, &utf8c);
+        ptr += charsize;
+        buflen -= charsize;
+      }
+      
+      if(buflen > 0){
+        memcpy(last_utf_char, ptr, buflen);
+      }
+      
+      NPVariant *data = (NPVariant *) browser->memalloc(sizeof(NPVariant) * 1);
+      STRINGN_TO_NPVARIANT(buffer, ptr-buffer, *data);
+      
+      void **arr = (void **) browser->memalloc(sizeof(void *) * 2);
+      arr[0] = obj;
+      arr[1] = data;
+      browser->pluginthreadasynccall(obj->npp, sendDataBack, arr);
+    }else{
+      break;
+    }
+  }
+}
+
+void *handleIO(void * userData){
+  PluginInstance *obj = (PluginInstance *)userData;
   int m, s, pid;
   struct winsize w = {obj->rows, obj->cols, 0, 0};
   
   int ret = openpty(&m, &s, NULL, NULL, &w);
-  if(ret < 0){
-    closeConnection(obj);
-    return NULL;
+  if(ret >= 0){
+    switch(pid = fork()) {
+      case -1: // error
+        break;
+      case  0: // slave
+        slave(obj, m, s, pid);
+        return NULL;
+      default: // master
+        master(obj, m, s, pid);
+        break;
+    }
   }
-  
-  passwd *pass;
-  switch(pid = fork()) {
-    case -1: // error
-      break;
-    case 0: // slave
-    
-      setsid(); // creates a new session
-      dup2(s, STDIN_FILENO); //duplicate a file descriptor
-      dup2(s, STDOUT_FILENO);
-      dup2(s, STDERR_FILENO);
-      
-      ioctl(s, TIOCSCTTY, NULL); // Make the given terminal the controlling
-                                 // terminal of the calling process
-      
-      
-      close(s); // closes a file descriptor
-      close(m);
-      
-      char **args;
-      char *cwd;
-      if(obj->cwd != NULL){
-        cwd = obj->cwd;
-      }else{
-        cwd = getenv("HOME");
-      }
-      
-      if(chdir(cwd) != 0){
-        if(chdir(getenv("HOME")) != 0){
-          exit(-1);
-        }
-      }
-      
-      
-      pass = getpwuid(getuid());
-      if(pass) {
-        setenv("LOGNAME", pass->pw_name, 1);
-        setenv("USER", pass->pw_name, 1);
-        setenv("SHELL", pass->pw_shell, 0);
-        setenv("HOME", pass->pw_dir, 0);
-      }
-      
-      signal(SIGCHLD, SIG_DFL);
-      signal(SIGHUP, SIG_DFL);
-      signal(SIGINT, SIG_DFL);
-      signal(SIGQUIT, SIG_DFL);
-      signal(SIGTERM, SIG_DFL);
-      signal(SIGALRM, SIG_DFL);
-
-      setenv("TERM", "xterm-256color", 1);
-      setenv("TERM_PROGRAM", "Devtools_Terminal", 1);
-      setenv("PROMPT_COMMAND","printf '\e]2;%s\a' \"$PWD\"",1);
-      setenv("LC_CTYPE","UTF-8",1);
-
-      args = (char *[]){ (char *)"-i", NULL };
-      execve(obj->cmd, args, environ);
-
-      exit(0);
-    default: // master
-      close(s);
-      
-      pollfd ufds = {m, POLLIN | POLLPRI};
-      pollfd *ufds_arr = { &ufds };
-      
-      obj->fd = m;
-      obj->pid = pid;
-
-      char last_utf_char[UTF_SIZ];
-      int buflen = 0;
-      
-      int a;
-      
-      while(1){
-        if((a = poll(ufds_arr, 1, -1)) > 0){
-          
-  
-          char *buffer = (char *)malloc(sizeof(char) * (BUFSIZ + buflen));
-          int bytesRead = read(m, buffer + buflen, BUFSIZ);
-          
-          if(bytesRead <= 0){
-            break;
-          }
-          
-          char *ptr = buffer;
-          
-          if(buflen > 0){
-            memcpy(ptr, last_utf_char, buflen);
-          }
-          
-          int charsize; /* size of utf8 char in bytes */
-          long utf8c;
-          buflen = buflen + bytesRead;
-          while(buflen >= UTF_SIZ || isfullutf8(ptr,buflen)) {
-            charsize = utf8decode(ptr, &utf8c);
-            ptr += charsize;
-            buflen -= charsize;
-          }
-          
-          if(buflen > 0){
-            memcpy(last_utf_char, ptr, buflen);
-          }
-          
-          NPVariant *data = new NPVariant;
-          STRINGN_TO_NPVARIANT(buffer, ptr-buffer, *data);
-          DataContainer *dc = new DataContainer;
-          dc->obj = obj;
-          dc->data = *data;
-          browser->pluginthreadasynccall(obj->npp, sendDataBack, dc);
-        }else{
-          break;
-        }
-      }
-      
-    break;
-  
-  }
-
   closeConnection(obj);
-
   return NULL;
 }
 
-NPVariant getNPVariantByString(NPP npp, NPObject *obj, char * name){
-  NPVariant v;
-  browser->getproperty(npp, obj, browser->getstringidentifier(name), &v);
-  return v;
-}
-
-bool method_init(MyNPObject *obj, const NPVariant *args, uint32_t argCount, NPVariant *result){
-  if(argCount >= 2 && NPVARIANT_IS_OBJECT(args[0]) && NPVARIANT_IS_OBJECT(args[1])) {
+bool method_init(PluginInstance *obj, const NPVariant *args,
+                 uint32_t argCount, NPVariant *result){
+  if(argCount >= 2 && NPVARIANT_IS_OBJECT(args[0])
+                   && NPVARIANT_IS_OBJECT(args[1])) {
 
     NPObject *options = NPVARIANT_TO_OBJECT(args[0]);
     
@@ -259,21 +254,21 @@ bool method_init(MyNPObject *obj, const NPVariant *args, uint32_t argCount, NPVa
 
     if(browser->getproperty(obj->npp, options, 
         browser->getstringidentifier("rows"), &rows_v) 
-        && rows_v.type != NPVariantType_Void){
+        && rows_v.type == NPVariantType_Double){
       obj->rows = (int)NPVARIANT_TO_DOUBLE(rows_v);
     }
     
     if(browser->getproperty(obj->npp, options, 
         browser->getstringidentifier("cols"), &cols_v) 
-        && cols_v.type != NPVariantType_Void){
+        && cols_v.type == NPVariantType_Double){
       obj->cols = (int)NPVARIANT_TO_DOUBLE(cols_v);
     }
     
     if(browser->getproperty(obj->npp, options, 
         browser->getstringidentifier("cmd"), &cmd_v) 
-        && cmd_v.type != NPVariantType_Void){
+        && cmd_v.type == NPVariantType_String){
       NPString str = NPVARIANT_TO_STRING(cmd_v);
-      char *buf = (char *)malloc(sizeof(char)*(str.UTF8Length +1));
+      char *buf = (char *)browser->memalloc(sizeof(char)*(str.UTF8Length +1));
       memcpy(buf, str.UTF8Characters, str.UTF8Length);
       buf[str.UTF8Length]='\0';
       obj->cmd = buf;
@@ -281,9 +276,9 @@ bool method_init(MyNPObject *obj, const NPVariant *args, uint32_t argCount, NPVa
 
     if(browser->getproperty(obj->npp, options, 
         browser->getstringidentifier("cwd"), &cwd_v) 
-        && cwd_v.type != NPVariantType_Void){
+        && cwd_v.type == NPVariantType_String){
       NPString str2 = NPVARIANT_TO_STRING(cwd_v);
-      char *buf2 = (char *)malloc(sizeof(char)*(str2.UTF8Length +1));
+      char *buf2 = (char *)browser->memalloc(sizeof(char)*(str2.UTF8Length +1));
       memcpy(buf2, str2.UTF8Characters, str2.UTF8Length);
       buf2[str2.UTF8Length]='\0';
       obj->cwd = buf2;
@@ -299,7 +294,7 @@ bool method_init(MyNPObject *obj, const NPVariant *args, uint32_t argCount, NPVa
   }
 }
 
-bool method_data(MyNPObject *obj, const NPVariant *args, 
+bool method_data(PluginInstance *obj, const NPVariant *args, 
                  uint32_t argCount, NPVariant *result){
   if(argCount >= 1 && NPVARIANT_IS_STRING(args[0])) {
     NPString str = NPVARIANT_TO_STRING(args[0]);
@@ -311,17 +306,16 @@ bool method_data(MyNPObject *obj, const NPVariant *args,
   }
 }
 
-bool method_debug(MyNPObject *obj, const NPVariant *args,
+bool method_debug(PluginInstance *obj, const NPVariant *args,
                   uint32_t argCount, NPVariant *result){
   char * cwd = getcwd(NULL, 0);
   STRINGZ_TO_NPVARIANT(cwd, *result);
   return true;
 }
 
-bool method_resize(MyNPObject *obj, const NPVariant *args, 
+bool method_resize(PluginInstance *obj, const NPVariant *args, 
                    uint32_t argCount, NPVariant *result){
   if(argCount >= 1 && NPVARIANT_IS_OBJECT(args[0])) {
-    
     NPObject *data = NPVARIANT_TO_OBJECT(args[0]);
     NPVariant rows_v;
     NPVariant cols_v;
@@ -355,6 +349,9 @@ bool method_resize(MyNPObject *obj, const NPVariant *args,
 
 
 
+void define_method(const char *name, method_t func){
+  hashmap_put(methodsTable, (char *)name, (void *)func);
+}
 
 NPError NP_Initialize(NPNetscapeFuncs* browserFuncs) {  
   browser = browserFuncs;
@@ -370,8 +367,9 @@ NPError NP_Initialize(NPNetscapeFuncs* browserFuncs) {
 }
 
 NPError NP_GetEntryPoints(NPPluginFuncs* pluginFuncs) {
-  if (pluginFuncs->size < (offsetof(NPPluginFuncs, setvalue) + sizeof(void*)))
+  if (pluginFuncs->size < (offsetof(NPPluginFuncs, setvalue) + sizeof(void*))){
     return NPERR_INVALID_FUNCTABLE_ERROR;
+  }
 
   pluginFuncs->newp = NPP_New;
   pluginFuncs->destroy = NPP_Destroy;
@@ -402,11 +400,15 @@ void NP_Shutdown(void) {
 
 
 static NPObject* objAllocate(NPP npp, NPClass *aClass) {
-  return new MyNPObject(npp);
+  return new PluginInstance(npp);
 }
 
 static void objDeallocate(NPObject *npobj) {
-  delete npobj;
+  PluginInstance* obj = reinterpret_cast<PluginInstance*>(npobj);
+  browser->memfree(obj->cmd);
+  browser->memfree(obj->cwd);
+  browser->retainobject(obj->dataCallback);
+  browser->memfree(npobj);
 }
 
 static void objInvalidate(NPObject *npobj) {
@@ -428,7 +430,7 @@ static bool objInvoke(NPObject *obj,
                       uint32_t argCount, 
                       NPVariant *result) {
   
-  MyNPObject* myObj = reinterpret_cast<MyNPObject*>(obj);
+  PluginInstance* myObj = reinterpret_cast<PluginInstance*>(obj);
   NPUTF8 *name = browser->utf8fromidentifier(methodName);
   
   any_t method;
@@ -492,12 +494,6 @@ static struct NPClass PluginClass = {
 
 NPError NPP_New(NPMIMEType pluginType, NPP instance, uint16_t mode, 
                 int16_t argc, char* argn[], char* argv[], NPSavedData* saved) {
-  PluginInstance *newInstance = (PluginInstance*)malloc(sizeof(PluginInstance));
-  bzero(newInstance, sizeof(PluginInstance));
-
-  newInstance->npp = instance;
-  instance->pdata = newInstance;
-
 
   NPBool supportsCoreGraphics = false;
   if (browser->getvalue(instance, NPNVsupportsCoreGraphicsBool, &supportsCoreGraphics) == NPERR_NO_ERROR && supportsCoreGraphics) {
@@ -525,10 +521,6 @@ NPError NPP_Destroy(NPP instance, NPSavedData** save) {
 }
 
 NPError NPP_SetWindow(NPP instance, NPWindow* window) {
-  PluginInstance* currentInstance = (PluginInstance*)(instance->pdata);
-
-  currentInstance->window = *window;
-  
   return NPERR_NO_ERROR;
 }
 
