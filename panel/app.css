@@ -153,6 +153,16 @@ button{
 
 button[type='submit']{
   font-weight: bold;
+  background: #fff;
+}
+
+button:hover{
+  background: #eaf1fb;
+}
+
+button:active{
+  background: #3879d9;
+  color: white;
 }
 
 button:focus{
@@ -191,7 +201,7 @@ input[type='password']:focus{
  * Address bar
  */
 
-.address-bar-wrapper{
+/*.address-bar-wrapper{
   position: absolute;
   top: 0;
   left: 0;
@@ -289,69 +299,149 @@ input[type='password']:focus{
 
 .suggestion:hover{
   background: #e8e8e8;
-  border-color: #e8e8e8; /*82b8ff*/
+  border-color: #e8e8e8;
 }
 
 .suggestion.selected{
   background: #b5d5ff;
-  border-color: #b5d5ff; /*82b8ff*/
+  border-color: #b5d5ff;
 }
 
 .address-bar-btn{
   position: absolute;
-  top: 6px;
   width: 20px;
   height: 20px;
   line-height: 20px;
-  background: #fff;
-  border: 1px solid #cacaca;
-  border-radius: 5px;
   text-align: center;
   cursor: pointer;
+  top: 10px;
 
   -webkit-transition: all 0.4s ease-out;
+  opacity: 0.5;
 }
 
-.address-bar-btn:hover{
-  border-color: rgb(48, 57, 66);
-}
 
-.address-bar-btn.show{
-  -webkit-transform: translate(0, 0) rotate(180deg);
-}
-
-.address-bar-btn.open-btn{
-  right: 10px;
+.address-bar-btn.open-btn,
+.address-bar-btn.open-btn:before,
+.address-bar-btn.open-btn:after{
+  width: 4px;
+  height: 4px;
+  background: #272822;
+  border-radius: 50%;
+  position: absolute;
   display: none;
 }
 
+.address-bar-btn.open-btn{
+  top: 16px;
+  right: 20px;
+}
+.address-bar-btn.open-btn:before,
 .address-bar-btn.open-btn:after{
   content: '';
-  display: inline-block;git 
-  width: 0;
-  height: 0;
-  border: 6px solid transparent;
-  border-bottom-color: rgb(48, 57, 66);
-  position: relative;
-  top: -2px;
+  display: block;
 }
+.address-bar-btn.open-btn:before{
+  right: -7px;
+}
+.address-bar-btn.open-btn:after{
+  left: -7px;
+}
+*/
 
-.address-bar-btn.theme-toggle-btn{
-  background: #272822;
+.theme-toggle-btn{
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  top: 10px;
+
+  -webkit-transition: all 0.4s ease-out;
+  opacity: 0.5;
   border-width: 0;
   border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  top: 10px;
-  right: 10px;
+  width: 26px;
+  height: 26px;
+  right: 9px;
+  top: 5px;
 }
 
 
-.address-bar-btn.theme-toggle-btn.white{
+.theme-toggle-btn:after{
+  width: 4px;
+  height: 4px;
+  background: #272822;
+  content: '';
+  display: block;
+  box-shadow: -7px 0 #272822, 7px 0 #272822;
+  border-radius: 50%;
+  position: absolute;
+  top: 11px;
+  left: 11px;
+}
+
+.theme-toggle-btn:hover{
+  opacity: 1.0;
+}
+
+.theme-toggle-btn.white:after{
   background: white;
+  box-shadow: -7px 0 white, 7px 0 white;
 }
 
 
+/**
+ * Menu
+ */
+
+.menu{
+  position: absolute;
+  right: 8px;
+  top: 33px;
+  border: 1px solid #d0d0d0;
+  display: none;
+}
+.menu.show{
+  display: block;
+}
+
+.menu button{
+  width: 100%;
+  text-align: left;
+  background: #fff;
+}
+
+.menu button:hover{
+  background: #eaf1fb;
+}
+
+.menu button:active{
+  background: #3879d9;
+}
+
+.menu:after,
+.menu:before{
+  content: '';
+  display: block;
+  position: absolute;
+  bottom: 100%;
+  width: 0;
+  height: 0;
+  border: solid transparent;
+}
+
+.menu:before{
+  right: 5px;
+  border-width: 8px;
+  border-bottom-color: #d0d0d0;
+}
+.menu:after{
+  right: 7px;
+  border-width: 6px;
+  border-bottom-color: white;
+}
 
 /**
  * Modal window
@@ -406,19 +496,6 @@ input[type='password']:focus{
   background: white;
   border: 0;
   border-top: 1px solid #ccc;
-}
-
-.modal button[type='submit']{
-  background: #fff;
-}
-
-.modal button:hover{
-  background: #eaf1fb;
-}
-
-.modal button:active{
-  background: #3879d9;
-  color: white;
 }
 
 .modal button + button{

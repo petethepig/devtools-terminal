@@ -2,7 +2,7 @@
   
   "use strict";
 
-  var debug = true;
+  var debug = !true;
 
   /*
    * Taken from Chromium:
@@ -66,6 +66,11 @@
     }
 
     window.addEventListener("load", setBodyClasses);
+
+    return {
+      platform: platform,
+      platformFlavor: platformFlavor
+    }
   }();
 
   /**
@@ -486,17 +491,24 @@
       this.cancelBtn = this.$(".js-cancel-btn")[0];
       this.okBtn = this.$(".js-ok-btn")[0];
 
-      this.focusElement = this.okBtn;
-
+      this.urlInput = this.$('input[name="url"]')[0];
       this.loginInput = this.$('input[name="login"]')[0];
       this.passwordInput = this.$('input[name="password"]')[0];
 
+      this.focusElement = this.urlInput;
+
+      this.urlInput.value = options.url || "";
       this.loginInput.value = options.login || "";
       this.passwordInput.value = options.password || "";
 
 
       this.$on(this.cancelBtn, 'click', this.cancelHandler);
       this.$on(this.form, 'submit', this.submitHandler);
+    },
+    setValues: function(url, login, password){
+      this.urlInput.value = url;
+      this.loginInput.value = login;
+      this.passwordInput.value = password;
     },
     cancelHandler: function(ev) {
       ev.preventDefault();
@@ -506,6 +518,7 @@
     submitHandler: function(ev) {
       ev.preventDefault();
       this.emit('submit',
+        this.urlInput.value,
         this.loginInput.value,
         this.passwordInput.value
       );
@@ -552,6 +565,59 @@
   });
 
 
+  var MenuComponent = Component.extend({
+    initialize: function(options) {
+      var self = this;
+      
+      this.openButton = document.querySelector(".theme-toggle-btn");
+      this.remoteConnectionButton = this.element.querySelectorAll("button")[0];
+      this.themeToggleButton = this.element.querySelectorAll("button")[1];
+      this.helpButton = this.element.querySelectorAll("button")[2];
+
+      this.updateUI(Settings.get('colorTheme'));
+
+      this.$on(this.openButton, 'click', this.show);
+      this.$on(this.remoteConnectionButton, 'click', this.remoteConnectionButtonClick);
+      this.$on(this.themeToggleButton, 'click', this.themeToggleButtonClick);
+      this.$on(this.helpButton, 'click', this.helpButtonClick);
+    },
+    remoteConnectionButtonClick: function(){
+      this.emit('remote_connection');
+    },
+    themeToggleButtonClick: function(){
+      var newTheme = Settings.get('colorTheme') == 'monokai' ? 'monokai_bright' : 'monokai';
+      setColorTheme(newTheme);
+      this.updateUI(newTheme);
+      Settings.set('colorTheme', newTheme);
+    },
+    helpButtonClick: function(){
+      this.aElement = this.aElement || document.createElement("a");
+      document.body.appendChild(this.aElement);
+      this.aElement.setAttribute("href", 'http://blog.dfilimonov.com/2013/09/12/devtools-terminal.html');
+      this.aElement.setAttribute("target", "_blank");
+      this.aElement.click();
+    },
+    updateUI: function(theme){
+      this.openButton.classList.toggle('white', theme == 'monokai');
+      this.themeToggleButton.textContent = 
+        theme == 'monokai' ? "Bright theme" : "Dark theme";
+    },
+    show: function() {
+      this.visible = true;
+      this.element.classList.add("show");
+      asyncCall(function(){
+        this.$on(document, 'click', this.hide);
+      }.bind(this));
+    },
+    hide: function() {
+      this.$off(document, 'click', this.hide);
+      this.visible = false;
+      this.element.classList.remove("show");
+    }
+  });
+
+
+  /*
   var AddressBarComponent = Component.extend({
     initialize: function(options) {
       var self = this;
@@ -601,11 +667,6 @@
       ev.preventDefault();
       this.latestValue = this.addressInput.value;
 
-      /*
-      if(!/^https?:\/\//.test(this.latestValue)) {
-        this.latestValue = 'http://' + this.latestValue;
-      }
-      */
       if(!/\/$/.test(this.latestValue)){
         this.latestValue = this.latestValue + '/';
       }
@@ -700,6 +761,7 @@
       this.updateSuggestions();
     }
   });
+  */
 
   var PluginComponent = Component.extend({
     initialize: function(options) {
@@ -794,10 +856,11 @@
       options = options || {};
       //extend(this.options, options);
 
-      this.url = this.url || options.url;
-      this.login = this.login || options.login;
-      this.password = this.password || options.password;
+      this.url = options.url || this.url || "";
+      this.login = options.login || this.login || "";
+      this.password = options.password || this.password || "";
       this.cwd = this.cwd || options.cwd;
+      this.cmd = this.cmd || options.cmd;
 
       if(this.socket) {
         this.utilizeSocket();
@@ -806,17 +869,20 @@
       var term = this.term;
       var authData = btoa(this.login + ":" + this.password);
       var size = this.maxSize();
-      var url = this.url;
 
 
-      if(url == "localhost"){
+      if(this.url == "<localhost>"){
         this.socket = new PluginComponent({
           rows: size.rows,
           cols: size.cols,
-          cwd: this.cwd
+          cwd: this.cwd,
+          cmd: this.cmd
         });
       }else{
-        this.socket = io.connect(url, {
+        if(!this.url.match(/^https?:\/\//)){
+          this.url = "http://" + this.url;
+        }
+        this.socket = io.connect(this.url, {
           'force new connection': true,
           reconnect: false,
           query: ("auth=" + authData + "&cols=" + size.cols + "&rows=" + size.rows)
@@ -922,10 +988,9 @@
       element: document.querySelector(".error-modal")
     });
 
-    var addressBar = new AddressBarComponent({
-      element: document.querySelector(".address-bar-wrapper")
+    var menu = new MenuComponent({
+      element: document.querySelector(".menu")
     });
-
 
     setColorTheme(Settings.get('colorTheme'));
 
@@ -933,10 +998,22 @@
 
     document.querySelector(".tab").appendChild(terminal.element);
     terminal.initTerminal();
+    function newRemoteConnection(){
+      authModal.setValues(
+        Settings.get('last_url') || "http://",
+        Settings.get('last_login') || "",
+        ""
+      );
+      authModal.show();
+    }
+
+    // Setup menu events
+    menu.on('remote_connection', newRemoteConnection);
 
     // Setup authModal events
-    authModal.on('submit', function(login, password) {
+    authModal.on('submit', function(url, login, password) {
       terminal.connect({
+        url: url,
         login: login,
         password: password
       });
@@ -945,23 +1022,13 @@
 
     // Setup errorModal events
     errorModal.on('cancel',function() {
-      addressBar.show();
+      if(terminal.url != "<localhost>"){
+        authModal.show();
+      }
     });
 
     errorModal.on('submit',function() {
-      errorModal.hide();
       terminal.connect();
-    });
-
-    // Setup addressBar events
-    addressBar.on('submit', function(url) {
-      var options = Settings.get('servers')[url] || {};
-      terminal.connect({
-        url: url,
-        login: options.login || "admin",
-        password: options.password || "",
-        cwd: options.cwd
-      });
     });
 
     // Setup terminal events
@@ -972,8 +1039,11 @@
 
     terminal.on('handshake error', function(data) {
       authModal.show();
-      authModal.loginInput.value = terminal.options.login;
-      authModal.passwordInput.value = "";
+      authModal.setValues(
+        terminal.url,
+        terminal.login,
+        ""
+      );
       asyncCall(function() {
         if(authModal.loginInput.value === "") {
           authModal.loginInput.focus();
@@ -984,7 +1054,10 @@
     });
 
     terminal.on('connect', function(data) {
-      addressBar.hide();
+      if(terminal.url != "<localhost>"){
+        Settings.set('last_url', terminal.url);
+        Settings.set('last_login', terminal.login);
+      }
       if(authModal) {
         authModal.hide();
       }
@@ -995,19 +1068,17 @@
       errorModal.show();
     });
 
-
-    // Start with showing the address bar
-    //addressBar.show();
-
     // Start with local terminal
-    var server = Settings.get("servers")["localhost"] || {};
-    terminal.connect({
-      url: "localhost",
-      cwd: server.cwd
-    });
-
-    window.Settings = Settings;
-
+    if(ChromiumUIUtils.platform() == 'mac'){
+      var server = Settings.get("servers")["<localhost>"] || {};
+      terminal.connect({
+        url: "<localhost>",
+        cwd: server.cwd,
+        cmd: "/bin/bash -i "
+      });
+    }else{
+      newRemoteConnection();
+    }
   }
 
 }).call(this);
