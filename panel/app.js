@@ -763,6 +763,79 @@
   });
   */
 
+  var ResourceLinker = Component.extend({
+    initialize: function(){
+      var self = this;
+      this.resources = {};
+      this.element = 1;
+      if(ResourceLinker.available){
+        this.tabId = chrome.devtools.inspectedWindow.tabId;
+        
+        chrome.devtools.inspectedWindow.getResources(function(array){
+          for(var i = 0; i < array.length; i++){
+            self.addResource(array[i]);
+          }
+        });
+
+        var port = chrome.runtime.connect({name: "chrome.webNavigation port"});
+        port.postMessage({tabId: this.tabId});
+        port.onMessage.addListener(function(details) {
+          self.reset();
+        });
+
+        chrome.devtools.inspectedWindow.onResourceAdded.addListener(function(res){
+          self.addResource(res);
+        });
+      }
+    },
+    reset: function(){
+      console.log('reset');
+      this.resources = {};
+    },
+    addResource: function(res){
+      console.log('add', res.url);
+ 
+      var p = this.parser = this.parser || document.createElement('a');
+      p.href = res.url;
+      p.search = p.hash = null;
+      var url = p.href;
+
+      this.resources[res.url] = url.split('/').reverse();
+    },
+    matchingResource: function(url){
+      
+      url = url.split('/').reverse();
+
+      var max_l = 0;
+      var matched_url = null;
+      console.log(this.resources, url);
+      for(var i in this.resources){
+        var components = this.resources[i];
+        var j = 0;
+        while(
+            j < components.length && 
+            j < url.length && 
+            components[j] == url[j]){
+          j++;
+        }
+        if(max_l < j){
+          max_l = j;
+          matched_url=i;
+        }
+      }
+      return matched_url;
+    },
+    openResource: function(url, line){
+      console.log('open', url, +line - 1);
+      chrome.devtools.panels.openResource(url, +line - 1);
+    }
+  });
+
+  ResourceLinker.available = chrome.devtools && 
+    chrome.devtools.inspectedWindow && 
+    chrome.devtools.panels;
+
+
   var PluginComponent = Component.extend({
     initialize: function(options) {
       options = options || {};
@@ -800,7 +873,7 @@
     removeAllListeners: function(){
       //TODO
     }
-  })
+  });
 
   var TerminalComponent = Component.extend({
     initialize: function(options) {
@@ -820,6 +893,11 @@
         soundBell: true,
         debug: true
       });
+
+      if(ResourceLinker.available){
+        this.term.resourceLinker = new ResourceLinker();
+      }
+
       
       this.term.open(this.element);
 

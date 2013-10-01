@@ -124,6 +124,16 @@ body, html{
   -webkit-user-select: all;
 }
 
+.terminal a{
+  color: inherit;
+  /*color: rgb(33%, 33%, 33%); from Devtools Console */
+  opacity: 0.8;
+  text-decoration: none;
+}
+
+.terminal a:hover{
+  text-decoration: underline;
+}
 
 
 .tab,

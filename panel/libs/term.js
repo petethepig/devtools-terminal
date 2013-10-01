@@ -264,6 +264,8 @@ function Terminal(options) {
     this.lines.push(this.blankLine());
   }
 
+  this.linkClick = this.linkClick.bind(this);
+
   this.tabs;
   this.setupStops();
 }
@@ -1167,6 +1169,8 @@ Terminal.prototype.refresh = function(start, end) {
     , ch
     , width
     , data
+    , linkageState
+    , links
     , attr
     , bg
     , fg
@@ -1180,14 +1184,51 @@ Terminal.prototype.refresh = function(start, end) {
   }
 
   width = this.cols;
-  y = start;
 
   if (end >= this.lines.length) {
     this.log('`end` is too large. Most likely a bad CSR.');
     end = this.lines.length - 1;
   }
 
-  for (; y <= end; y++) {
+
+
+
+
+  links = [];
+  if(this.resourceLinker){
+    var string = '';
+    for (y = start; y <= end; y++) {
+      row = y + this.ydisp;
+      for (i = 0; i < width; i++) {
+        ch = this.lines[row][i][1];
+        this.lines[row][i][2] = 0;
+        string += ch;
+      }
+    }
+
+    links = this.extractResourceLinks(string);
+
+    /*
+    for(var link in linksHash){
+      var s = linksHash[link]
+        , e = s + link.length;
+      this.lines[this.ydisp + start + Math.floor(s / width)][s % width][2] |= 1;
+      this.lines[this.ydisp + start + Math.floor(e / width)][e % width][2] |= 2;
+      linkageArray.push(link);
+      if(Math.floor(s / width) != Math.floor(e / width)){
+        this.lines[Math.floor(s / width)][width-1][2] |= 2;
+        this.lines[Math.floor(s / width) + 1][0][2] |= 1;
+        linkageArray.push(link);
+      }
+    }
+    */
+  }
+
+
+
+  linkageState = 0;
+
+  for (y = start; y <= end; y++) {
     row = y + this.ydisp;
 
     line = this.lines[row];
@@ -1205,9 +1246,27 @@ Terminal.prototype.refresh = function(start, end) {
     attr = this.defAttr;
     i = 0;
 
+
+    if (linkageState == 1) {
+      out += links[0].endTag;
+    }
+
     for (; i < width; i++) {
       data = line[i][0];
       ch = line[i][1];
+
+      var index = (y - start) * width + i;
+      if(links[0]){
+        if(index == links[0].end){
+          linkageState = 0;
+          out += links[0].endTag;
+          links.shift();
+        }else if(index == links[0].start){
+          linkageState = 1;
+          out += links[0].startTag;
+        }
+      }
+
 
       if (i === x) data = -1;
 
@@ -1313,11 +1372,65 @@ Terminal.prototype.refresh = function(start, end) {
       out += '</span>';
     }
 
+    if (linkageState == 1) {
+      out += links[0].endTag;
+    }
+
+    var anchors = this.children[y].querySelectorAll('a');
+    for(i = 0; i < anchors.length; i++){
+      anchors[i].removeEventListener('click', this.linkClick);
+    }
+
     this.children[y].innerHTML = out;
+
+    anchors = this.children[y].querySelectorAll('a');
+    for(i = 0; i < anchors.length; i++){
+      anchors[i].addEventListener('click', this.linkClick);
+    }
+
   }
 
   if (parent) parent.appendChild(this.element);
 };
+
+Terminal.prototype.extractResourceLinks = function(input){
+  var i = 0;
+  var links = [];
+  var regexp = /([\w.$:\-\/]*\/)?((?:(?!\d+)[\w.$:\-]+))(?::([0-9]+)?)\b/;
+  while(input){
+    var match = regexp.exec(input);
+    if(!match){
+      break;
+    }
+    var url = match[0];
+    var line = match[3] || 1;
+    var startIndex = input.indexOf(url);
+    var endIndex = startIndex + url.length;
+    var resourceURL = this.resourceLinker.matchingResource((match[1]||"")+match[2]);
+    console.log('resourceURL', resourceURL);
+    if(resourceURL){
+      links.push({
+        start: i + startIndex,
+        end: i + endIndex,
+        startTag: '<a href="#" data-url="' + resourceURL + 
+                  '" data-line="'+ line +'" >',
+        endTag: '</a>'
+      });
+    }
+
+    input = input.substring(endIndex);
+    i += endIndex;
+  }
+  return links;
+}
+
+Terminal.prototype.linkClick = function(e){
+  e.preventDefault();
+  this.resourceLinker.openResource(
+    e.target.getAttribute('data-url'), 
+    e.target.getAttribute('data-line')
+  );
+}
 
 Terminal.prototype._cursorBlink = function() {
   if (Terminal.focus !== this) return;
@@ -1499,17 +1612,19 @@ Terminal.prototype.write = function(data) {
                 }
               }
 
-              this.lines[this.y + this.ybase][this.x] = [this.curAttr, ch];
+              var linkage = 0;
+
+              this.lines[this.y + this.ybase][this.x] = [this.curAttr, ch, linkage];
               this.x++;
               this.updateRange(this.y);
 
               if (isWide(ch)) {
                 j = this.y + this.ybase;
                 if (this.cols < 2 || this.x >= this.cols) {
-                  this.lines[j][this.x - 1] = [this.curAttr, ' '];
+                  this.lines[j][this.x - 1] = [this.curAttr, ' ', linkage];
                   break;
                 }
-                this.lines[j][this.x] = [this.curAttr, ' '];
+                this.lines[j][this.x] = [this.curAttr, ' ', linkage];
                 this.x++;
               }
             }

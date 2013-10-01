@@ -319,8 +319,8 @@ bool method_resize(PluginInstance *obj, const NPVariant *args,
     NPObject *data = NPVARIANT_TO_OBJECT(args[0]);
     NPVariant rows_v;
     NPVariant cols_v;
-    browser->getproperty(obj->npp, data, browser->getintidentifier(0), &rows_v);
-    browser->getproperty(obj->npp, data, browser->getintidentifier(1), &cols_v);
+    browser->getproperty(obj->npp, data, browser->getintidentifier(1), &rows_v);
+    browser->getproperty(obj->npp, data, browser->getintidentifier(0), &cols_v);
     int rows = (int)NPVARIANT_TO_DOUBLE(rows_v);
     int cols = (int)NPVARIANT_TO_DOUBLE(cols_v);
   
