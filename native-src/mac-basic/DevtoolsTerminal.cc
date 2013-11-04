@@ -28,7 +28,9 @@
 #include "hashmap.h"
 #include "utf8.h"
 
-extern char **environ;
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+
 NPNetscapeFuncs* browser;
 map_t methodsTable;
 
@@ -40,7 +42,7 @@ class PluginInstance : public NPObject {
     pid_t pid;
     int fd;
     char *cwd; // working directory
-    char *cmd;
+    char *shell;
     int rows;
     int cols;
 
@@ -148,7 +150,15 @@ void slave(PluginInstance *obj, int m, int s, int pid){
   setenv("PROMPT_COMMAND","printf '\e]2;%s\a' \"$PWD\"",1);
   setenv("LC_CTYPE","UTF-8",1);
   
-  char **array = split(obj->cmd);
+  if(pass != NULL && pass->pw_shell != NULL){
+    obj->shell = pass->pw_shell;
+  }else if(obj->shell == NULL){
+    obj->shell = (char *)"/bin/sh";
+  }
+
+  char buf[1024];
+  snprintf(buf, 1024, "%s -i ", obj->shell);
+  char **array = split(buf);
   
   execve(array[0], &array[1], environ);
   exit(0);
@@ -242,7 +252,7 @@ bool method_init(PluginInstance *obj, const NPVariant *args,
     NPVariant rows_v;
     NPVariant cols_v;
     NPVariant cwd_v;
-    NPVariant cmd_v;
+    NPVariant shell_v;
   
     obj->dataCallback = NPVARIANT_TO_OBJECT(args[1]);
     browser->retainobject(obj->dataCallback);
@@ -250,7 +260,7 @@ bool method_init(PluginInstance *obj, const NPVariant *args,
     obj->rows = 80;
     obj->rows = 24;
     obj->cwd = NULL;
-    obj->cmd = getenv("SHELL");
+    obj->shell = getenv("SHELL");
 
     if(browser->getproperty(obj->npp, options, 
         browser->getstringidentifier("rows"), &rows_v) 
@@ -264,15 +274,18 @@ bool method_init(PluginInstance *obj, const NPVariant *args,
       obj->cols = (int)NPVARIANT_TO_DOUBLE(cols_v);
     }
     
+    
     if(browser->getproperty(obj->npp, options, 
-        browser->getstringidentifier("cmd"), &cmd_v) 
-        && cmd_v.type == NPVariantType_String){
-      NPString str = NPVARIANT_TO_STRING(cmd_v);
+        browser->getstringidentifier("shell"), &shell_v) 
+        && shell_v.type == NPVariantType_String
+        && obj->shell != NULL){
+      NPString str = NPVARIANT_TO_STRING(shell_v);
       char *buf = (char *)browser->memalloc(sizeof(char)*(str.UTF8Length +1));
       memcpy(buf, str.UTF8Characters, str.UTF8Length);
       buf[str.UTF8Length]='\0';
-      obj->cmd = buf;
+      obj->shell = buf;
     }
+    
 
     if(browser->getproperty(obj->npp, options, 
         browser->getstringidentifier("cwd"), &cwd_v) 
@@ -405,7 +418,7 @@ static NPObject* objAllocate(NPP npp, NPClass *aClass) {
 
 static void objDeallocate(NPObject *npobj) {
   PluginInstance* obj = reinterpret_cast<PluginInstance*>(npobj);
-  browser->memfree(obj->cmd);
+  browser->memfree(obj->shell);
   browser->memfree(obj->cwd);
   browser->retainobject(obj->dataCallback);
   browser->memfree(npobj);

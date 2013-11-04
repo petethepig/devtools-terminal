@@ -1151,7 +1151,7 @@
       terminal.connect({
         url: "<localhost>",
         cwd: server.cwd,
-        cmd: "/bin/bash -i "
+        //cmd: "/bin/bash"
       });
     }else{
       newRemoteConnection();

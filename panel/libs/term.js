@@ -1396,7 +1396,7 @@ Terminal.prototype.refresh = function(start, end) {
 Terminal.prototype.extractResourceLinks = function(input){
   var i = 0;
   var links = [];
-  var regexp = /([\w.$:\-\/]*\/)?((?:(?!\d+)[\w.$:\-]+))(?::([0-9]+)?)\b/;
+  var regexp = /([\w.$:\-\/]*\/)?((?:(?!\d+)[\w.$:\-]+)(?::([0-9]+)))\b/;
   while(input){
     var match = regexp.exec(input);
     if(!match){

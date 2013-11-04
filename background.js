@@ -6,6 +6,9 @@
 
 
 chrome.runtime.onConnect.addListener(function(port) {
+
+  var tabId;
+
   if(port.name == "chrome.storage port"){
     port.onMessage.addListener(function(msg) {
       
@@ -22,8 +25,12 @@ chrome.runtime.onConnect.addListener(function(port) {
     });
   }else if(port.name == "chrome.webNavigation port"){
     port.onMessage.addListener(function(msg) {
-      webNavigationListeners[msg.tabId] = port;
+      tabId = msg.tabId;
+      webNavigationListeners[tabId] = port;
     });
+    port.onDisconnect.addListener(function(){
+      delete webNavigationListeners[tabId];
+    })
   }
 });
 
@@ -34,11 +41,28 @@ chrome.runtime.onConnect.addListener(function(port) {
 
 var webNavigationListeners = {};
 
-chrome.webNavigation.onBeforeNavigate.addListener(function(details){
-  if(details.parentFrameId == -1){ // which means this is the main frame
-    var port = webNavigationListeners[details.tabId];
-    if(port){
-      port.postMessage(details);
-    }
+var permissions = {
+  permissions: ['webNavigation']
+}
+
+chrome.permissions.contains(permissions, function(granted){
+  if(granted){
+    webNavigationHandler();
+  }else{
+    chrome.permissions.request(permissions, function(granted2){
+      granted2 && webNavigationHandler();
+    });
   }
-});
+})
+
+
+function webNavigationHandler(){
+  chrome.webNavigation.onBeforeNavigate.addListener(function(details){
+    if(details.parentFrameId == -1){ // which means this is the main frame
+      var port = webNavigationListeners[details.tabId];
+      if(port){
+        port.postMessage(details);
+      }
+    }
+  });
+}
