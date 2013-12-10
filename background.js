@@ -42,7 +42,7 @@ chrome.runtime.onConnect.addListener(function(port) {
 var webNavigationListeners = {};
 
 var permissions = {
-  permissions: ['webNavigation']
+  permissions: ['webNavigation', 'nativeMessaging']
 }
 
 chrome.permissions.contains(permissions, function(granted){

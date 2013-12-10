@@ -617,152 +617,6 @@
   });
 
 
-  /*
-  var AddressBarComponent = Component.extend({
-    initialize: function(options) {
-      var self = this;
-      
-      this.openButton = document.querySelector(".open-btn");
-      this.themeToggleButton = document.querySelector(".theme-toggle-btn");
-      
-      this.themeToggleButton.classList.toggle('white', Settings.get('colorTheme') == 'monokai');
-
-      this.addressInput = this.$("input[type='text']")[0];
-      this.addressInput.value = "http://";
-      this.form = this.$("form")[0];
-      
-      this.$on(this.openButton, 'click', this.openButtonClick);
-      this.$on(this.themeToggleButton, 'click', this.themeToggleButtonClick);
-      this.$on(this.form, 'submit', this.submitHandler);
-      this.$on(this.addressInput, "focus", this.addressFocus);
-      this.$on(this.addressInput, "blur", this.addressBlur);
-      this.$on(this.addressInput, "keydown", function(ev) {
-        asyncCall(function() {
-          self.addressKeydown(ev);
-        });
-      });
-
-      this.suggestionsContainer = this.$(".suggestions")[0];
-      this.suggestionElements = this.$(".suggestion");
-
-      for(var i = 0; i < 5; i++){
-        this.$on(this.suggestionElements[i], 'mousedown', this.suggestionClick);
-      }
-
-
-      this.selectedSuggestion = 0;
-      this.suggestionsCount = 0;
-
-    },
-    openButtonClick: function(){
-      this.visible ? this.hide() : this.show();
-    },
-    themeToggleButtonClick: function(){
-      var newTheme = Settings.get('colorTheme') == 'monokai' ? 'monokai_bright' : 'monokai';
-      this.themeToggleButton.classList.toggle('white', newTheme == 'monokai');
-      setColorTheme(newTheme);
-      Settings.set('colorTheme', newTheme);
-    },
-    submitHandler: function(ev) {
-      ev.preventDefault();
-      this.latestValue = this.addressInput.value;
-
-      if(!/\/$/.test(this.latestValue)){
-        this.latestValue = this.latestValue + '/';
-      }
-
-      this.addressInput.value = this.latestValue;
-
-      this.updateSuggestions();
-      this.addressInput.blur();
-      this.emit('submit', this.latestValue);
-    },
-    suggestionClick: function(ev) {
-      for(var i = 0; i < 5; i++){
-        if(this.suggestionElements[i] == ev.target){
-          this.addressInput.value = ev.target.server;
-          this.submitHandler(ev);
-          return;
-        }
-      }
-    },
-    addressFocus: function(ev) {
-      this.updateSuggestions();
-    },
-    addressBlur: function(ev) {
-      this.updateSuggestions();
-    },
-    addressKeydown: function(ev) {
-      switch(ev.keyCode) {
-        case 38:
-          this.selectedSuggestion--;
-          if(this.selectedSuggestion < 0) {
-            this.selectedSuggestion = this.suggestionsCount - 1;
-          }
-          break;
-        case 40:
-          this.selectedSuggestion++;
-          if(this.selectedSuggestion > this.suggestionsCount - 1) {
-            this.selectedSuggestion = 0;
-          }
-          break;
-        default:
-          this.latestValue = this.addressInput.value;
-          this.selectedSuggestion = -1;
-      }
-
-      if(ev.keyCode == 38 || ev.keyCode == 40) {
-        this.addressInput.value = this.suggestionElements[this.selectedSuggestion].innerText;
-      }
-      this.updateSuggestions();
-    },
-    updateSuggestions: function() {
-      var str = this.latestValue || "";
-      var servers = Settings.get('servers') || {};
-      var serversArray = [];
-      for(var i in servers){
-        serversArray.push(i);
-      }
-
-      var results = fuzzy.filter(str, serversArray, { pre: '<strong>', post: '</strong>' });
-      var matches = results.map(function(el) { return el.string; });
-
-      if(this.visible && str !== "" && document.activeElement == this.addressInput && matches.length > 0) {
-        this.suggestionsContainer.style.display = "block";
-        for(var i = 0; i < this.suggestionElements.length; i++) {
-          var el = this.suggestionElements[i];
-          el.style.display = i < matches.length ? "block" : "none";
-          if(i < matches.length) {
-            el.server = results[i].original;
-            el.innerHTML = matches[i];
-            el.classList.toggle("selected", (i == this.selectedSuggestion));
-          }
-        }
-      }else{
-        this.suggestionsContainer.style.display = "none";
-      }
-
-      this.suggestionsCount = Math.min(matches.length, 5);
-
-    },
-    show: function() {
-      return; // Temporary measure
-      this.visible = true;
-      this.element.classList.add("show");
-      this.openButton.classList.remove("show");
-      asyncCall(function(){
-        this.addressInput.focus();
-      }.bind(this),500);
-    },
-    hide: function() {
-      this.visible = false;
-      this.element.classList.remove("show");
-      this.openButton.classList.add("show");
-      this.updateSuggestions();
-    }
-  });
-  */
-
   var ResourceLinker = Component.extend({
     initialize: function(){
       var self = this;
@@ -836,6 +690,7 @@
     chrome.devtools.panels;
 
 
+  // Deprecated
   var PluginComponent = Component.extend({
     initialize: function(options) {
       options = options || {};
@@ -875,6 +730,48 @@
     }
   });
 
+
+  var NativeMessagingComponent = Component.extend({
+    initialize: function(options) {
+      options = options || {};
+      options.cols = options.cols || 80;
+      options.rows = options.rows || 24;
+      this.options = options; 
+      this.element = 1;
+    },
+    connect: function(){
+      var self = this;
+      asyncCall(function(){
+        self.port = chrome.runtime.connectNative("com.dfilimonov.devtoolsterminal");
+        self.port.onDisconnect.addListener(function(){
+          if(chrome.runtime.lastError){
+            console.error(chrome.runtime.lastError.message)
+          }
+          console.log("disconnect")
+          EventEmitter.prototype.emit.call(self, 'disconnect');
+          self.port = null;
+        });
+        self.port.onMessage.addListener(function(msg){
+          EventEmitter.prototype.emit.call(self, msg.event, msg.data);
+        });
+        self.emit('init', self.options);
+        EventEmitter.prototype.emit.call(self, 'connect');
+      });
+    },
+    emit: function(event, data){
+      //console.log(this.port)
+      if(this.port){
+        this.port.postMessage({
+          event: event,
+          data: data
+        });
+      }
+    },
+    removeAllListeners: function(){
+      //TODO
+    }
+  });
+
   var TerminalComponent = Component.extend({
     initialize: function(options) {
       this.element = document.createElement("div");
@@ -906,12 +803,13 @@
 
 
       this.term.on('title', function(data) {
+        console.log('title', data)
         self.cwd = data;
         Settings.updateServerInfo(self.url, {cwd: self.cwd});
       });
 
       this.term.on('bell', function() {
-        beep(250/2,0,440/2);
+        beep(250/2, 0, 440/2);
       });
 
       this.term.on('resize', function(data) {
@@ -950,7 +848,7 @@
 
 
       if(this.url == "<localhost>"){
-        this.socket = new PluginComponent({
+        this.socket = new NativeMessagingComponent({
           rows: size.rows,
           cols: size.cols,
           cwd: this.cwd,
@@ -1159,12 +1057,6 @@
   }
 
 }).call(this);
-
-
-
-
-
-
 
 
 
