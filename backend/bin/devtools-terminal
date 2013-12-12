@@ -71,9 +71,15 @@ if(options.port){
 io = io.listen(config.port, config);
 
 
+function splitOnce(str, del){
+  var index = str.indexOf(del);
+  return [str.slice(0, index), str.slice(index + 1)];
+}
+
+
 function auth(str){
   try{
-    var arr = atob(str).split(":")
+    var arr = splitOnce(atob(str), ':')
       , login = arr[0]
       , pass  = arr[1];
     return (config.users[login] && config.users[login].password == pass) ? config.users[login] : false;
