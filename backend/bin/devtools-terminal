@@ -76,7 +76,12 @@ function auth(str){
     var arr = atob(str).split(":")
       , login = arr[0]
       , pass  = arr[1];
-    return (config.users[login] && config.users[login].password == pass) ? config.users[login] : false;
+    if(config.users[login]){
+      if(typeof config.users[login].password === 'function'){
+        return config.users[login].password(pass, login);
+      }
+      return config.users[login].password == pass;
+    }
   }catch(e){;}
   return false;
 }
