@@ -28,6 +28,7 @@ var options = optimist
   .alias('p', 'port')
   .alias('c', 'config')
   .describe('h', 'Show this message')
+  .describe('host', 'Host to bind to')
   .describe('p', 'Port')
   .describe('c', 'Path to the config file')
   .argv
@@ -60,6 +61,10 @@ if(options.config){
 
 config.log = config.log || false;
 
+if(options.host){
+  config.host = options.host;
+}
+
 if(options.port){
   config.port = options.port;
 }
@@ -68,7 +73,7 @@ if(options.port){
 /**
  * Sockets
  */
-io = io.listen(config.port, config);
+io = io.listen(config.port, config, config.host);
 
 
 function auth(str){
