@@ -273,6 +273,10 @@
     return Math.random().toString(36).substring(2);
   }
 
+  function extensionId(){
+    return chrome.i18n.getMessage("@@extension_id");
+  }
+
   /**
    * Chrome API-related stuff
    */  
@@ -564,7 +568,6 @@
     }
   });
 
-
   var MenuComponent = Component.extend({
     initialize: function(options) {
       var self = this;
@@ -685,90 +688,52 @@
     }
   });
 
-  ResourceLinker.available = chrome.devtools && 
-    chrome.devtools.inspectedWindow && 
-    chrome.devtools.panels;
+  ResourceLinker.available = false; //chrome.devtools && chrome.devtools.inspectedWindow && chrome.devtools.panels;
 
 
-  // Deprecated
-  var PluginComponent = Component.extend({
-    initialize: function(options) {
+  var NativeMessagingBridge = Component.extend({
+    initialize: function(options){
       options = options || {};
       options.cols = options.cols || 80;
       options.rows = options.rows || 24;
-
-      this.options = options; 
-
-      var plugin = document.createElement('embed');
-      plugin.setAttribute('hidden', 'true');
-      plugin.type = 'application/x-devtools-terminal';
-      document.body.appendChild(plugin);
-      
-      window.plugin = this.plugin = this.element = plugin;
-
-    },
-    connect: function(){
-      var self = this;
-      asyncCall(function(){
-        self.plugin.init(self.options, function(data){
-          if(data == null){
-            EventEmitter.prototype.emit.call(self, 'disconnect');
-          }else{
-            EventEmitter.prototype.emit.call(self, 'data', data);
-          }
-        });
-        EventEmitter.prototype.emit.call(self, 'connect');
-      }, 100);
-    },
-    emit: function(event, data){
-      if(this.plugin[event]){
-        var a = this.plugin[event].call(this.plugin, data);
-      }
-    },
-    removeAllListeners: function(){
-      //TODO
-    }
-  });
-
-
-  var NativeMessagingComponent = Component.extend({
-    initialize: function(options) {
-      options = options || {};
-      options.cols = options.cols || 80;
-      options.rows = options.rows || 24;
-      this.options = options; 
+      this.options = options;
       this.element = 1;
     },
     connect: function(){
       var self = this;
+      var connected = false;
       asyncCall(function(){
-        self.port = chrome.runtime.connectNative("com.dfilimonov.devtoolsterminal");
+        //self.port = chrome.runtime.connectNative("com.dfilimonov.devtoolsterminal");
+        self.port = chrome.runtime.connect({name: "chrome.nativeMessaging port"});
         self.port.onDisconnect.addListener(function(){
-          if(chrome.runtime.lastError){
-            console.error(chrome.runtime.lastError.message)
+          if(connected){
+            EventEmitter.prototype.emit.call(self, 'disconnect');
+          }else{
+            EventEmitter.prototype.emit.call(self, 'error');
           }
-          console.log("disconnect")
-          EventEmitter.prototype.emit.call(self, 'disconnect');
+          
           self.port = null;
         });
         self.port.onMessage.addListener(function(msg){
+          if(!connected){
+            if(msg.event != 'nm-error'){
+              connected = true;
+            }
+            EventEmitter.prototype.emit.call(self, 'connect');
+          }
           EventEmitter.prototype.emit.call(self, msg.event, msg.data);
         });
         self.emit('init', self.options);
-        EventEmitter.prototype.emit.call(self, 'connect');
+        
       });
     },
     emit: function(event, data){
-      //console.log(this.port)
       if(this.port){
         this.port.postMessage({
           event: event,
           data: data
         });
       }
-    },
-    removeAllListeners: function(){
-      //TODO
     }
   });
 
@@ -795,7 +760,6 @@
         this.term.resourceLinker = new ResourceLinker();
       }
 
-      
       this.term.open(this.element);
 
       this.$on(window, 'resize', this.resizeHandler);
@@ -848,11 +812,44 @@
 
 
       if(this.url == "<localhost>"){
-        this.socket = new NativeMessagingComponent({
+        this.socket = new NativeMessagingBridge({
           rows: size.rows,
           cols: size.cols,
           cwd: this.cwd,
           cmd: this.cmd
+        });
+        this.socket.on('nm-error', function(msg){
+          var newline = "\n\r";
+          for(var i = 0; i < size.cols / 2 - 40 - 1;i++){
+            newline+=" ";
+          }
+          term.write(
+            newline + 
+            "                        *** Important announcement! ***                         " + newline + 
+            "                                                                                " + newline + 
+            "Due to Chrome's abandonment of NPAPI, we had to move to a newer technology" + newline + 
+            "called Native Messaging API." + newline +
+            "                                                                                " + newline + 
+            "Which is kind of good, because now we fully support Linux!                      " + newline + 
+            "The bad news is that in order to use Devtools Terminal now you have to manually " + newline +
+            "install the Node.js proxy." + newline +
+            "                                                                                " + newline + 
+            "Don't worry, it's easy, here are some quick instructions to get you going:      " + newline +
+            "                                                                                " + newline + 
+            "* Install Node.js (http://nodejs.org/)" + newline + 
+            "* Open your terminal and run:" + newline +
+            "                                                                                " + newline + 
+            "  npm install -g devtools-terminal" + newline + 
+            "  sudo devtools-terminal --install --id=" + extensionId() + newline +
+            "                                                                                " + newline + 
+            "Basically, the first command will install the proxy app and the second one will " + newline + 
+            "tell the Chrome browser where to find it." + newline + 
+            "                                                                                " + newline + 
+            "If it didn't work for you, " + newline + 
+            "please, report at https://github.com/petethepig/devtools-terminal/issues" + newline + 
+            "" + newline + 
+            "Thanks"
+          );
         });
       }else{
         if(!this.url.match(/^https?:\/\//)){
@@ -863,10 +860,14 @@
           reconnect: false,
           query: ("auth=" + authData + "&cols=" + size.cols + "&rows=" + size.rows)
         });
+        this.socket.on('error', function(data) {
+          var type = data == 'handshake error' ? 'handshake error' : 'error';
+          self.emit(type, data);
+        });
       }
 
       this.socket.on('connect', function() {
-        Settings.updateServerInfo(self.url, {login:self.login});
+        Settings.updateServerInfo(self.url, {login: self.login});
         self.emit('connect');
       });
 
@@ -879,14 +880,10 @@
         term.write(data);
       });
 
-      this.socket.on('error', function(data) {
-        var type = data == 'handshake error' ? 'handshake error' : 'error';
-        self.emit(type, data);
-      });
-
       if(this.socket.connect){
         this.socket.connect();
       }
+
       asyncCall(function(){
         self.term.reset();
         self.term.element.focus();
@@ -1043,22 +1040,18 @@
       errorModal.show();
     });
 
-    // Start with local terminal
-    if(ChromiumUIUtils.platform() == 'mac'){
+    
+    if(ChromiumUIUtils.platform() == "windows"){
+      authModal.show();
+    }else{
       var server = Settings.get("servers")["<localhost>"] || {};
       terminal.connect({
         url: "<localhost>",
-        cwd: server.cwd,
-        //cmd: "/bin/bash"
+        cwd: server.cwd
       });
-    }else{
-      newRemoteConnection();
     }
   }
 
 }).call(this);
-
-
-
 
 

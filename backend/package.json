@@ -1,7 +1,7 @@
 {
   "name": "devtools-terminal",
   "preferGlobal": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": "Dmitry Filimonov <me@dfilimonov.com>",
   "description": "Terminal in Chrome Devtools",
   "contributors": [ 
@@ -20,7 +20,8 @@
   "dependencies" : {
     "pty.js"   :  "*",
     "optimist" :  "*",
-    "socket.io":  "*"
+    "socket.io":  "*",
+    "mkdirp"   :  "*"
   },
   "license": "MIT",
   "engines": {

@@ -6,11 +6,11 @@
   "description": "Local terminal in your browser.",
   "devtools_page": "devtools.html",
   "permissions": [
-    "storage"
-  ],
-  "optional_permissions": [
+    "storage",
     "webNavigation",
     "nativeMessaging"
+  ],
+  "optional_permissions": [
   ],
   "icons": {
     "128": "icons/app-icon-128.png",
@@ -28,11 +28,5 @@
     "launch": {
       "local_path": "panel/index.html"
     }
-  },
-  "plugins": [
-    {
-      "path": "native/devtools-terminal.plugin",
-      "public": true
-    }
-  ]
+  }
 }

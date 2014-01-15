@@ -1,20 +1,319 @@
-#!/bin/sh
+#!/usr/bin/env node
 
-NODE=$(which node)
-if [ -z $NODE ]
-then
-  NODE=$(which /usr/bin/node)
-  if [ -z $NODE ]
-  then
-    NODE=$(which /usr/local/bin/node)
-    if [ -z $NODE ]
-    then
-      exit 1
-    fi
-  fi
-fi
+var io = require('socket.io')
+  , optimist = require('optimist')
+  , pty = require('pty.js')
+  , path = require('path')
+  , fs = require('fs')
+  , mkdirp = require('mkdirp')
+  , spawn = require('child_process').spawn
+  , os = require('os')
+  , EventEmitter = require('events').EventEmitter;
 
-ROOT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
-SCRIPT_PATH="$(echo $ROOT_PATH)/lib/cli.js"
 
-exec $NODE $SCRIPT_PATH --native-messaging-host
+/**
+ * Utils
+ */
+var platform = os.platform();
+function defaultShell(){
+  platform == 'win32' ? "C:\\Windows\\system32\\cmd.exe" : '/bin/bash';
+}
+
+/**
+ * Base64 functions
+ */
+function atob(a){
+  return new Buffer(a, 'base64').toString('utf8');
+}
+function btoa(a){
+  return new Buffer(a, 'utf8').toString('base64');
+}
+
+/**
+ * Parsing arguments
+ */
+var options = optimist
+  .usage('Devtools Terminal backend\nUsage: devtools-terminal [options]')
+  .boolean('install')
+  .alias('h', 'help')
+  .alias('p', 'port')
+  .alias('c', 'config')
+  .describe('install', 'Install Chrome Native Messaging host')
+  .describe('h', 'Show this message')
+  .describe('p', 'Port')
+  .describe('c', 'Path to the config file')
+  .boolean('native-messaging-host')
+  .argv
+;
+
+if(options.help){
+  console.log(optimist.help());
+  return 0;
+}
+
+
+/**
+ * Native Messaging
+ */
+function NativeMessagingAPI(){
+  var self = this;
+  var mode = 0;
+  var read_length = 0;
+
+  this.emit = function(event, data){
+    var msg = JSON.stringify({
+      event: event,
+      data: data
+    });
+    var length = msg.length;
+    var length_str = new Buffer(4);
+    length_str.writeInt32LE(length, 0);
+    process.stdout.write(length_str);
+    process.stdout.write(msg);
+  }
+
+  function processInput(){
+    if(mode == 0){
+      var len = process.stdin.read(4);
+      if(len != null){
+        read_length = len.readInt32LE(0);
+        mode = 1;
+        processInput();
+      }
+    }else{
+      var msg = process.stdin.read(read_length);
+      if(msg != null){
+        msg = JSON.parse(msg);
+        EventEmitter.prototype.emit.call(self, msg.event, msg.data);
+        mode = 0;
+      }
+    }
+  }
+  this.processInput = processInput;
+}
+NativeMessagingAPI.prototype = Object.create(EventEmitter.prototype);
+
+
+
+/**
+ * main()
+ */
+if(options['install']){
+  function handleError(err){
+    console.log("Permission denied, you may need to run this as superuser");
+    process.exit(1);
+  }
+
+  var scriptFilename = platform == 'win32' ? 'nm-host.bat' : 'nm-host.sh';
+  var scriptPath = path.join(__dirname, '..', 'bin', scriptFilename);
+  var manifestDirectory;
+  switch(platform){
+    case 'linux':
+      manifestDirectory = "/etc/opt/chrome/native-messaging-hosts/";
+    break;
+    case 'darwin':
+      manifestDirectory = "/Library/Google/Chrome/NativeMessagingHosts/";
+    break;
+    case 'win32':
+      manifestDirectory = process.env['USERPROFILE']; // I have no idea where should I put this file on Windows. Please, help
+    break;
+    default:
+      console.log("Unknown platform: " + platform);
+      process.exit(1);
+    break;
+  }
+  var manifestPath = path.join(manifestDirectory, 'com.dfilimonov.devtoolsterminal.json');
+  var manifest = {
+    name: "com.dfilimonov.devtoolsterminal",
+    description: "Devtools Terminal",
+    path: scriptPath,
+    type: "stdio",
+    allowed_origins: [
+      "chrome-extension://leakmhneaibbdapdoienlkifomjceknl/",
+    ]
+  }
+
+  if(options.id && options.id != 'leakmhneaibbdapdoienlkifomjceknl'){
+    manifest.allowed_origins.push("chrome-extension://" + options.id + "/");
+  }
+
+  manifest = JSON.stringify(manifest, null, 2);
+
+  mkdirp(manifestDirectory, function (err) {
+    if(err) {
+      handleError(err);
+    }else{
+      fs.writeFile(manifestPath, manifest, function(err2) {
+        if(err2) {
+          handleError(err2);
+        } else {
+          if(platform == 'win32'){
+            var regKey = "HKLM\\SOFTWARE\\Google\\Chrome\\NativeMessagingHosts\\com.dfilimonov.devtoolsterminal";
+            var reg = spawn("REG", ["ADD", regKey, "/t", "REG_SZ", "/d", manifestPath, "/f"]);
+            //reg.stdout.pipe(process.stdout);
+            //reg.stderr.pipe(process.stderr);
+            reg.on('close', function (err3) {
+              if(err3){
+                handleError(err3);
+              }else{
+                console.log("Chrome Native Messaging host application installed successfully");
+              }
+            });
+          }else{
+            console.log("Chrome Native Messaging host application installed successfully");
+          }
+        }
+      });
+    }
+  });
+}else if(options['native-messaging-host']){
+
+  ["info", "error", "warn", "log"].forEach(function(func){
+    console[func] = function(){
+      process.stderr.write(Array.prototype.join.call(arguments, " ") + "\n");
+    }
+  });
+
+  var api = new NativeMessagingAPI();
+  var term;
+
+  api.on('init', function(options){
+    var name = fs.existsSync('/usr/share/terminfo/x/xterm-256color') ? 'xterm-256color' : 'xterm';
+
+    process.env['TERM'] =  name;
+    process.env['TERM_PROGRAM'] =  "Devtools_Terminal";
+    process.env['PROMPT_COMMAND'] = "printf '\\e]2;%s\\a' \"$PWD\"";
+    process.env['LC_CTYPE'] = "UTF-8";
+
+    term = pty.spawn(process.env.SHELL || '/bin/bash', ['-l'], {
+      name: name,
+      cols: options.cols,
+      rows: options.rows,
+      cwd: options.cwd || process.cwd()
+    });
+
+    term.on('data', function(data) {
+      api.emit('data', data);
+    });
+
+    term.on('close', function(){
+      api.emit('disconnect', {});
+      process.exit(0);
+    });
+
+  });
+
+  api.on('data', function(data){
+    term.write(data);
+  });
+
+  api.on('resize', function(data){
+    term.resize(data[0], data[1]);
+  });
+
+  api.on('disconnect', function(){
+    term.end();
+  });
+
+  process.stdin.on('readable', function() {
+    api.processInput();
+  });
+
+  process.stdin.resume();
+
+}else{ // Old Websockets proxy
+
+  /**
+   * Loading config
+   */
+  var config;
+
+  if(options.config){
+    config = require(path.resolve(process.cwd(), options.config)).config;
+  }else{
+    config = {
+      users: {
+        admin: {
+          password: "",
+          cwd: process.cwd()
+        }
+      },
+      port: 8080
+    };
+  }
+
+
+  if(options.port){
+    config.port = options.port;
+  }
+
+
+  // Init sockets
+  io = io.listen(config.port, config);
+  function auth(str){
+    try{
+      var arr = atob(str).split(":")
+        , login = arr[0]
+        , pass  = arr[1];
+      return (config.users[login] && config.users[login].password == pass) ? config.users[login] : false;
+    }catch(e){;}
+    return false;
+  }
+
+  io.configure(function (){
+    io.set('authorization', function (handshakeData, callback) {
+      var user;
+      if(user = auth(handshakeData.query.auth)){
+        handshakeData.user = user;
+        return callback(null, true);      
+      }else{
+        return callback('auth error', false);
+      }
+
+    });
+  });
+
+
+  io.sockets.on('connection', function(socket) {
+    var handshakeData = socket.manager.handshaken[socket.id];
+
+    var buff = []
+      , term;
+
+    var name = fs.existsSync('/usr/share/terminfo/x/xterm-256color') ? 'xterm-256color' : 'xterm';
+
+    term = pty.spawn(process.env.SHELL || '/bin/bash', ['-l'], {
+      name: name,
+      cols: +handshakeData.query.cols || 80,
+      rows: +handshakeData.query.rows || 24,
+      cwd: handshakeData.user.cwd || process.cwd()
+    });
+
+    term.on('data', function(data) {
+      return !socket
+        ? buff.push(data)
+        : socket.emit('data', data);
+    });
+
+    term.on('close', function(){
+      socket.disconnect();
+    })
+
+    socket.on('data', function(data) {
+      term.write(data);
+    });
+
+    socket.on('resize', function(data) {
+      term.resize(data[0], data[1]);
+    });
+
+    socket.on('disconnect', function() {
+      socket = null;
+      term.end();
+    });
+
+    while (buff.length) {
+      socket.emit('data', buff.shift());
+    }
+  });
+}
