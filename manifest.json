@@ -1,15 +1,16 @@
 {
   "manifest_version": 2,
   "name": "Devtools Terminal",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "author": "Dmitry Filimonov",
   "description": "Local terminal in your browser.",
   "devtools_page": "devtools.html",
   "permissions": [
-    "storage"
+    "storage",
+    "webNavigation",
+    "nativeMessaging"
   ],
   "optional_permissions": [
-    "webNavigation"
   ],
   "icons": {
     "128": "icons/app-icon-128.png",
@@ -27,11 +28,5 @@
     "launch": {
       "local_path": "panel/index.html"
     }
-  },
-  "plugins": [
-    {
-      "path": "native/devtools-terminal.plugin",
-      "public": true
-    }
-  ]
+  }
 }
