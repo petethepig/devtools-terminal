@@ -7,7 +7,6 @@
   "devtools_page": "devtools.html",
   "permissions": [
     "storage",
-    "webNavigation",
     "nativeMessaging"
   ],
   "optional_permissions": [

@@ -65,37 +65,3 @@ chrome.runtime.onConnect.addListener(function(port) {
   }
 });
 
-
-/**
- * The same thing, we can't access chrome.webNavigation API directly from devtools panel
- */
-var webNavigationListeners = {};
-
-function webNavigationHandler(){
-  chrome.webNavigation.onBeforeNavigate.addListener(function(details){
-    if(details.parentFrameId == -1){ // which means this is the main frame
-      var port = webNavigationListeners[details.tabId];
-      if(port){
-        port.postMessage(details);
-      }
-    }
-  });
-}
-
-
-/*
-var permissions = {
-  permissions: ['webNavigation', 'nativeMessaging']
-}
-
-chrome.permissions.contains(permissions, function(granted){
-  if(granted){
-    webNavigationHandler();
-  }else{
-    chrome.permissions.request(permissions, function(granted2){
-      granted2 && webNavigationHandler();
-    });
-  }
-});
-*/
-
