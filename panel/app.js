@@ -264,7 +264,6 @@
     if(typeof timeout === "undefined") {
       timeout = 0;
     }
-    Array.prototype.slice.call(arguments);
     var args = Array.prototype.slice.call(arguments);
     return setTimeout(func, timeout, args);
   }
