@@ -39,6 +39,7 @@ var options = optimist
   .alias('p', 'port')
   .alias('c', 'config')
   .describe('install', 'Install Chrome Native Messaging host')
+  .describe('chromium', 'Set paths for Chromium')
   .describe('h', 'Show this message')
   .describe('host', 'Host to bind to')
   .describe('p', 'Port')
@@ -109,10 +110,14 @@ if(options['install']){
   var manifestDirectory;
   switch(platform){
     case 'linux':
-      manifestDirectory = "/etc/opt/chrome/native-messaging-hosts/";
+      manifestDirectory = options['chromium']
+                            ? "/etc/chromium/native-messaging-hosts/"
+                            : "/etc/opt/chrome/native-messaging-hosts/";
     break;
     case 'darwin':
-      manifestDirectory = "/Library/Google/Chrome/NativeMessagingHosts/";
+      manifestDirectory = options['chromium']
+                            ? "/Library/Application Support/Chromium/NativeMessagingHosts"
+                            : "/Library/Google/Chrome/NativeMessagingHosts/";
     break;
     case 'win32':
       manifestDirectory = process.env['USERPROFILE']; // I have no idea where should I put this file on Windows. Please, help
