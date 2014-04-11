@@ -571,10 +571,10 @@
     initialize: function(options) {
       var self = this;
       
-      this.openButton = document.querySelector(".theme-toggle-btn");
-      this.remoteConnectionButton = this.element.querySelectorAll("button")[0];
-      this.themeToggleButton = this.element.querySelectorAll("button")[1];
-      this.helpButton = this.element.querySelectorAll("button")[2];
+      this.openButton = document.getElementsByClassName('menu-toggle-btn')[0];
+      this.remoteConnectionButton = this.element.getElementsByClassName('remote-connection-btn')[0];
+      this.themeToggleButton = this.element.getElementsByClassName('theme-toggle-btn')[0];
+      this.helpButton = this.element.getElementsByClassName('help-toggle-btn')[0];
 
       this.updateUI(Settings.get('colorTheme'));
 

@@ -360,7 +360,7 @@ input[type='password']:focus{
 }
 */
 
-.theme-toggle-btn{
+.menu-toggle-btn{
   position: absolute;
   width: 20px;
   height: 20px;
@@ -380,7 +380,7 @@ input[type='password']:focus{
 }
 
 
-.theme-toggle-btn:after{
+.menu-toggle-btn:after{
   width: 4px;
   height: 4px;
   background: #272822;
@@ -393,11 +393,11 @@ input[type='password']:focus{
   left: 11px;
 }
 
-.theme-toggle-btn:hover{
+.menu-toggle-btn:hover{
   opacity: 1.0;
 }
 
-.theme-toggle-btn.white:after{
+.menu-toggle-btn.white:after{
   background: white;
   box-shadow: -7px 0 white, 7px 0 white;
 }
