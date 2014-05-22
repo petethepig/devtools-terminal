@@ -490,8 +490,7 @@ input[type='password']:focus{
 }
 
 .modal p{
-  width: 160px;
-  margin: 10px auto;
+  margin: 10px 0;
 }
 
 .modal input[type='text'],
