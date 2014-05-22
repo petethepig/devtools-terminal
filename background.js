@@ -7,6 +7,8 @@
 
 chrome.runtime.onConnect.addListener(function(port) {
 
+  var tabId;
+
   if(port.name == "chrome.storage port"){
     port.onMessage.addListener(function(msg) {
       
@@ -22,7 +24,6 @@ chrome.runtime.onConnect.addListener(function(port) {
       })
     });
   }else if(port.name == "chrome.webNavigation port"){
-    var tabId;
     port.onMessage.addListener(function(msg) {
       tabId = msg.tabId;
       webNavigationListeners[tabId] = port;
@@ -30,38 +31,38 @@ chrome.runtime.onConnect.addListener(function(port) {
     port.onDisconnect.addListener(function(){
       delete webNavigationListeners[tabId];
     })
-  }else if(port.name == "chrome.nativeMessaging port"){
-    var nmPort = null;
-    port.onMessage.addListener(function(msg) {
-      if(msg.event == 'init'){
-        nmPort = chrome.runtime.connectNative("com.dfilimonov.devtoolsterminal");
-        console.log('CONNECT')
-        nmPort.onDisconnect.addListener(function(){
-          nmPort = null;
-          console.log('disconnect')
-          if(chrome.runtime.lastError){
-            console.log(chrome.runtime.lastError.message);
-            port.postMessage({event: 'nm-error', data: chrome.runtime.lastError.message})
-          }
-          port.disconnect();
-        });
-        nmPort.onMessage.addListener(function(data){
-          console.log('MESSAGE')
-          port.postMessage(data);
-        });
-      }
-      if(nmPort){
-        console.log('POST',msg)
-        nmPort.postMessage(msg);
-      }
-    });
-    port.onDisconnect.addListener(function(){
-      console.log('disconnect');
-      if(nmPort){
-        nmPort.postMessage({event: 'disconnect', data:{}});
-        nmPort.disconnect();
-      }
-    })
   }
 });
 
+
+/**
+ * The same thing, we can't access chrome.webNavigation API directly from devtools panel
+ */
+
+var webNavigationListeners = {};
+
+var permissions = {
+  permissions: ['webNavigation']
+}
+
+chrome.permissions.contains(permissions, function(granted){
+  if(granted){
+    webNavigationHandler();
+  }else{
+    chrome.permissions.request(permissions, function(granted2){
+      granted2 && webNavigationHandler();
+    });
+  }
+})
+
+
+function webNavigationHandler(){
+  chrome.webNavigation.onBeforeNavigate.addListener(function(details){
+    if(details.parentFrameId == -1){ // which means this is the main frame
+      var port = webNavigationListeners[details.tabId];
+      if(port){
+        port.postMessage(details);
+      }
+    }
+  });
+}
