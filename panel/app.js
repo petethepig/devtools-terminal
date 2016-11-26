@@ -365,7 +365,8 @@
     var self = this;
     var localCopy = {
       servers: {},
-      colorTheme: 'monokai_bright'
+      colorTheme: 'monokai_bright',
+      beep: 'true'
     };
 
     this.load = function(){
@@ -571,16 +572,21 @@
     initialize: function(options) {
       var self = this;
       
-      this.openButton = document.querySelector(".theme-toggle-btn");
-      this.remoteConnectionButton = this.element.querySelectorAll("button")[0];
-      this.themeToggleButton = this.element.querySelectorAll("button")[1];
-      this.helpButton = this.element.querySelectorAll("button")[2];
+      this.openButton = document.getElementsByClassName('menu-toggle-btn')[0];
+      this.remoteConnectionButton = this.element.getElementsByClassName('remote-connection-btn')[0];
+      this.themeToggleButton = this.element.getElementsByClassName('theme-toggle-btn')[0];
+      this.beepToggleButton = this.element.getElementsByClassName('beep-toggle-btn')[0];
+      this.helpButton = this.element.getElementsByClassName('help-toggle-btn')[0];
 
-      this.updateUI(Settings.get('colorTheme'));
+      this.updateUI({
+        theme: Settings.get('colorTheme'),
+        beep: Settings.get('beep'),
+      });
 
       this.$on(this.openButton, 'click', this.show);
       this.$on(this.remoteConnectionButton, 'click', this.remoteConnectionButtonClick);
       this.$on(this.themeToggleButton, 'click', this.themeToggleButtonClick);
+      this.$on(this.beepToggleButton, 'click', this.beepToggleButtonClick);
       this.$on(this.helpButton, 'click', this.helpButtonClick);
     },
     remoteConnectionButtonClick: function(){
@@ -589,8 +595,13 @@
     themeToggleButtonClick: function(){
       var newTheme = Settings.get('colorTheme') == 'monokai' ? 'monokai_bright' : 'monokai';
       setColorTheme(newTheme);
-      this.updateUI(newTheme);
+      this.updateUI({ theme: newTheme });
       Settings.set('colorTheme', newTheme);
+    },
+    beepToggleButtonClick: function(){
+      var newBeep = Settings.get('beep') === 'true' ? 'false' : 'true';
+      this.updateUI({ beep: newBeep });
+      Settings.set('beep', newBeep);
     },
     helpButtonClick: function(){
       this.aElement = this.aElement || document.createElement("a");
@@ -599,10 +610,16 @@
       this.aElement.setAttribute("target", "_blank");
       this.aElement.click();
     },
-    updateUI: function(theme){
-      this.openButton.classList.toggle('white', theme == 'monokai');
-      this.themeToggleButton.textContent = 
-        theme == 'monokai' ? "Bright theme" : "Dark theme";
+    updateUI: function(options){
+      if (options.theme) {
+        this.openButton.classList.toggle('white', options.theme == 'monokai');
+        this.themeToggleButton.textContent =
+          options.theme == 'monokai' ? "Bright theme" : "Dark theme";
+      }
+      if (options.beep) {
+        this.beepToggleButton.textContent =
+          options.beep === 'true' ? "Mute beep" : "Unmute beep";
+      }
     },
     show: function() {
       this.visible = true;
@@ -772,7 +789,9 @@
       });
 
       this.term.on('bell', function() {
-        beep(250/2, 0, 440/2);
+        if(Settings.get('beep') === 'true') {
+          beep(250/2, 0, 440/2);
+        }
       });
 
       this.term.on('resize', function(data) {
@@ -949,6 +968,10 @@
 
     if(!Settings.get('colorTheme')){
       Settings.set('colorTheme', 'monokai_bright'); 
+    }
+
+    if(!Settings.get('beep')){
+      Settings.set('beep', 'true');
     }
 
     // Initialize all components
