@@ -264,8 +264,7 @@
     if(typeof timeout === "undefined") {
       timeout = 0;
     }
-    var args = Array.prototype.slice.call(arguments);
-    return setTimeout(func, timeout, args);
+    return setTimeout(func, timeout);
   }
 
   function randomID() {
